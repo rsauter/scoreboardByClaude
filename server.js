@@ -200,4 +200,6 @@ server.listen(PORT, () => {
   console.log(`   Operator:     http://localhost:${PORT}/gamestart.html`);
   console.log(`   Display:      http://localhost:${PORT}/display.html\n`);
   console.log(`   Manage Teams: http://localhost:${PORT}/manager.html\n`);
+  console.log(`\n   Prisma Studio: npx prisma studio  →  http://localhost:5555\n`);
+
 });
