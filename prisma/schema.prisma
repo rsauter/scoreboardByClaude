@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -8,12 +9,15 @@ datasource db {
 }
 
 model Team {
-  id          Int           @id @default(autoincrement())
-  name        String
-  players     TeamPlayer[]
-  homeMatches Match[]       @relation("HomeTeam")
-  awayMatches Match[]       @relation("AwayTeam")
-  createdAt   DateTime      @default(now())
+  id           Int          @id @default(autoincrement())
+  name         String
+  abbreviation String       @default("")
+  color        String       @default("#00d4ff")
+  organization String       @default("")
+  players      TeamPlayer[]
+  homeMatches  Match[]      @relation("HomeTeam")
+  awayMatches  Match[]      @relation("AwayTeam")
+  createdAt    DateTime     @default(now())
 }
 
 model Player {

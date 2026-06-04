@@ -1,3 +1,13 @@
+require('dotenv').config();
+
+const { PrismaClient } = require('./generated/prisma');
+const { PrismaPg } = require('@prisma/adapter-pg');
+const { Pool } = require('pg');
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -11,16 +21,37 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(express.json());
 
-// ─── API ──────────────────────────────────────────────────────────────────────
+// ─── Teams API ────────────────────────────────────────────────────────────────
 app.get('/api/teams', async (req, res) => {
   try {
-    // TODO: Prisma anbinden
-    // const teams = await prisma.team.findMany({ orderBy: { name: 'asc' } });
-    // res.json(teams);
-    res.json([]); // vorerst leer
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+    const teams = await prisma.team.findMany({ orderBy: { name: 'asc' } });
+    res.json(teams);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/teams', async (req, res) => {
+  const { name, abbreviation, color, organization } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name ist pflicht' });
+  try {
+    const team = await prisma.team.create({ data: { name, abbreviation: abbreviation || '', color: color || '#00d4ff', organization: organization || '' } });
+    res.status(201).json(team);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/teams/:id', async (req, res) => {
+  const { name, abbreviation, color, organization } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name ist pflicht' });
+  try {
+    const team = await prisma.team.update({ where: { id: parseInt(req.params.id) }, data: { name, abbreviation: abbreviation || '', color: color || '#00d4ff', organization: organization || '' } });
+    res.json(team);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/teams/:id', async (req, res) => {
+  try {
+    await prisma.team.delete({ where: { id: parseInt(req.params.id) } });
+    res.status(204).send();
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── Game State (In-Memory) ───────────────────────────────────────────────────
