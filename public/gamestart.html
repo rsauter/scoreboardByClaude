@@ -95,9 +95,16 @@
     const suggestEl = document.getElementById(`${side}-suggestions`);
     const val = inputEl.value.trim().toLowerCase();
     if (!val || knownTeams.length === 0) { suggestEl.style.display = 'none'; return; }
-    const matches = knownTeams.filter(t => t.name.toLowerCase().includes(val));
+    
+    const matches = knownTeams.filter(
+      t => t.name.toLowerCase().includes(val) ||
+      t.abbreviation.toLowerCase().includes(val) ||
+      t.organization.toLowerCase().includes(val)
+     );
+    
     if (matches.length === 0) { suggestEl.style.display = 'none'; return; }
-    suggestEl.innerHTML = matches.map(t => `<div onclick="selectTeam('${side}','${t.name.replace(/'/g,"\\'")}')"> ${t.name}</div>`).join('');
+    suggestEl.innerHTML = matches.map(
+      t => `<div onclick="selectTeam('${side}','${t.abbreviation.replace(/'/g,"\\'")}')"> ${t.abbreviation}</div>`).join('');
     suggestEl.style.display = 'block';
   }
 
