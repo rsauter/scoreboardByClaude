@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Team {
+  id           Int          @id @default(autoincrement())
+  name         String
+  abbreviation String       @default("")
+  color        String       @default("#00d4ff")
+  organization String       @default("")
+  players      TeamPlayer[]
+  homeMatches  Match[]      @relation("HomeTeam")
+  awayMatches  Match[]      @relation("AwayTeam")
+  createdAt    DateTime     @default(now())
+}
+
+model Player {
+  id        Int          @id @default(autoincrement())
+  name      String
+  number    Int?
+  teams     TeamPlayer[]
+  createdAt DateTime     @default(now())
+}
+
+model TeamPlayer {
+  team      Team     @relation(fields: [teamId], references: [id])
+  teamId    Int
+  player    Player   @relation(fields: [playerId], references: [id])
+  playerId  Int
+
+  @@id([teamId, playerId])
+}
+
+model Match {
+  id         Int      @id @default(autoincrement())
+  homeTeam   Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  homeTeamId Int
+  awayTeam   Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  awayTeamId Int
+  scoreHome  Int      @default(0)
+  scoreAway  Int      @default(0)
+  playedAt   DateTime @default(now())
+}
