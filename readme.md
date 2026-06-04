@@ -77,4 +77,4 @@ MIT
 
 ## Autor
 
-Roger Sauter – [@rsauter](https://github.com/rsauter)
+Roger Sauter – [@rsauter](https://github.com/rsauter) - 2026
