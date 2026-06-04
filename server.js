@@ -9,6 +9,20 @@ const wss = new WebSocket.Server({ server });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.use(express.json());
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+app.get('/api/teams', async (req, res) => {
+  try {
+    // TODO: Prisma anbinden
+    // const teams = await prisma.team.findMany({ orderBy: { name: 'asc' } });
+    // res.json(teams);
+    res.json([]); // vorerst leer
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Game State (In-Memory) ───────────────────────────────────────────────────
 let state = createInitialState();
 
@@ -183,6 +197,7 @@ function advancePhase() {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log('\n🏒 Unihockey Matchuhr läuft!');
-  console.log(`   Operator: http://localhost:${PORT}/operator.html`);
-  console.log(`   Display:  http://localhost:${PORT}/display.html\n`);
+  console.log(`   Operator:     http://localhost:${PORT}/gamestart.html`);
+  console.log(`   Display:      http://localhost:${PORT}/display.html\n`);
+  console.log(`   Manage Teams: http://localhost:${PORT}/manager.html\n`);
 });

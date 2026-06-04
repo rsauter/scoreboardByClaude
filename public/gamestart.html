@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matchuhr – Spielstart</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; color: #eee; font-family: 'Segoe UI', sans-serif; padding: 24px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  h1 { text-align: center; color: #00d4ff; margin-bottom: 8px; font-size: 1.6rem; }
+  .subtitle { text-align: center; color: #aaa; font-size: 0.85rem; margin-bottom: 28px; }
+  .card { background: #16213e; border-radius: 12px; padding: 20px; width: 100%; max-width: 680px; margin-bottom: 16px; }
+  .card h2 { font-size: 0.8rem; color: #aaa; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  .teams-row { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 10px; align-items: end; }
+  .vs { text-align: center; font-size: 1.2rem; font-weight: bold; color: #aaa; padding-bottom: 8px; }
+  .field-group { display: flex; flex-direction: column; gap: 4px; position: relative; }
+  label { font-size: 0.78rem; color: #aaa; }
+  input[type=text], select {
+    background: #0f3460; color: #eee; border: 1px solid #0984e3;
+    border-radius: 6px; padding: 8px 10px; font-size: 0.9rem; width: 100%;
+  }
+  input[type=text]:focus, select:focus { outline: none; border-color: #00d4ff; }
+  .autocomplete-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 10;
+    background: #0f3460; border: 1px solid #0984e3; border-top: none;
+    border-radius: 0 0 6px 6px; max-height: 160px; overflow-y: auto;
+  }
+  .autocomplete-list div {
+    padding: 7px 10px; cursor: pointer; font-size: 0.85rem;
+    border-bottom: 1px solid #1a3a6e;
+  }
+  .autocomplete-list div:hover { background: #1a4a8e; color: #00d4ff; }
+  .autocomplete-list div:last-child { border-bottom: none; }
+  .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: opacity 0.2s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-green { background: #00b894; color: #fff; }
+  .btn-blue { background: #0984e3; color: #fff; }
+  .btn-gray { background: #636e72; color: #fff; }
+  .btn-large { padding: 14px 28px; font-size: 1.05rem; width: 100%; margin-top: 4px; }
+  .actions { display: flex; gap: 10px; max-width: 680px; width: 100%; }
+  .actions .btn { flex: 1; }
+  .hint { font-size: 0.75rem; color: #636e72; margin-top: 6px; text-align: center; }
+  .nav-links { display: flex; gap: 16px; margin-bottom: 24px; }
+  .nav-links a { color: #74b9ff; font-size: 0.82rem; text-decoration: none; }
+  .nav-links a:hover { color: #00d4ff; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="nav-links">
+  <a href="/manager.html">⚙️ Stammdaten verwalten</a>
+  <a href="/operator.html">🎮 Direkt zum Operator</a>
+</div>
+
+<h1>🏒 Spielstart</h1>
+<p class="subtitle">Konfiguriere das Spiel und starte dann die Uhr im Operator.</p>
+
+<div class="card">
+  <h2>Teams</h2>
+  <div class="teams-row">
+    <div class="field-group" id="home-group">
+      <label>Heim-Team</label>
+      <input type="text" id="cfg-home" placeholder="Teamname oder frei eingeben" autocomplete="off" oninput="onTeamInput('home')">
+      <div class="autocomplete-list" id="home-suggestions" style="display:none"></div>
+    </div>
+    <div class="vs">vs</div>
+    <div class="field-group" id="away-group">
+      <label>Gast-Team</label>
+      <input type="text" id="cfg-away" placeholder="Teamname oder frei eingeben" autocomplete="off" oninput="onTeamInput('away')">
+      <div class="autocomplete-list" id="away-suggestions" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Spielmodus</h2>
+  <div class="form-row-3">
+    <div>
+      <label>Spielmodus</label>
+      <select id="cfg-mode">
+        <option value="1x24">1 × 24 min (E-Junioren)</option>
+        <option value="2x20">2 × 20 min (Halbzeiten)</option>
+        <option value="3x20" selected>3 × 20 min (Dritteln)</option>
+      </select>
+    </div>
+    <div>
+      <label>Pause</label>
+      <select id="cfg-break">
+        <option value="300">5 min</option>
+        <option value="600" selected>10 min</option>
+        <option value="900">15 min</option>
+      </select>
+    </div>
+    <div>
+      <label>Verlängerung</label>
+      <select id="cfg-ot">
+        <option value="300" selected>5 min Sudden Death</option>
+        <option value="600">10 min Sudden Death</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="actions">
+  <button class="btn btn-green btn-large" onclick="startGame()">▶ Spiel starten</button>
+</div>
+<p class="hint">Du wirst nach dem Start zum Operator weitergeleitet.</p>
+
+<script>
+  const ws = new WebSocket(`ws://${location.host}`);
+
+  // Teams aus DB laden (später via API)
+  let knownTeams = [];
+
+  async function loadTeams() {
+    try {
+      const res = await fetch('/api/teams');
+      if (res.ok) knownTeams = await res.json();
+    } catch(e) {
+      // DB noch nicht angebunden – kein Problem
+    }
+  }
+
+  loadTeams();
+
+  function onTeamInput(side) {
+    const inputEl = document.getElementById(`cfg-${side}`);
+    const suggestEl = document.getElementById(`${side}-suggestions`);
+    const val = inputEl.value.trim().toLowerCase();
+
+    if (!val || knownTeams.length === 0) {
+      suggestEl.style.display = 'none';
+      return;
+    }
+
+    const matches = knownTeams.filter(t => t.name.toLowerCase().includes(val));
+    if (matches.length === 0) {
+      suggestEl.style.display = 'none';
+      return;
+    }
+
+    suggestEl.innerHTML = matches.map(t =>
+      `<div onclick="selectTeam('${side}', '${t.name.replace(/'/g,"\\'")}')">
+        ${t.name}
+      </div>`
+    ).join('');
+    suggestEl.style.display = 'block';
+  }
+
+  function selectTeam(side, name) {
+    document.getElementById(`cfg-${side}`).value = name;
+    document.getElementById(`${side}-suggestions`).style.display = 'none';
+  }
+
+  // Klick ausserhalb schliesst Dropdown
+  document.addEventListener('click', e => {
+    ['home', 'away'].forEach(side => {
+      const group = document.getElementById(`${side}-group`);
+      if (!group.contains(e.target)) {
+        document.getElementById(`${side}-suggestions`).style.display = 'none';
+      }
+    });
+  });
+
+  function startGame() {
+    const homeTeam = document.getElementById('cfg-home').value.trim() || 'Heim';
+    const awayTeam = document.getElementById('cfg-away').value.trim() || 'Gast';
+    const gameMode = document.getElementById('cfg-mode').value;
+    const breakDuration = parseInt(document.getElementById('cfg-break').value);
+    const otDuration = parseInt(document.getElementById('cfg-ot').value);
+
+    ws.send(JSON.stringify({
+      cmd: 'SET_CONFIG',
+      homeTeam, awayTeam, gameMode, breakDuration, otDuration
+    }));
+
+    // Kurz warten damit der Server den State verarbeitet, dann weiterleiten
+    setTimeout(() => {
+      window.location.href = '/operator.html';
+    }, 200);
+  }
+</script>
+</body>
+</html>

@@ -43,36 +43,6 @@
 <body>
 <h1>⏱ Matchuhr – Operator</h1>
 <div class="status-bar" id="conn-status">Verbinde...</div>
-<div class="card full-width" style="margin-bottom:12px">
-  <h2>Spielkonfiguration</h2>
-  <div class="form-row">
-    <div><label>Heim-Team</label><input type="text" id="cfg-home" value="Heim"></div>
-    <div><label>Gast-Team</label><input type="text" id="cfg-away" value="Gast"></div>
-  </div>
-  <div class="form-row-3">
-    <div><label>Spielmodus</label>
-      <select id="cfg-mode">
-        <option value="1x24">1 × 24 min (E-Junioren)</option>
-        <option value="2x20">2 × 20 min (Halbzeiten)</option>
-        <option value="3x20" selected>3 × 20 min (Dritteln)</option>
-      </select>
-    </div>
-    <div><label>Pause</label>
-      <select id="cfg-break">
-        <option value="300">5 min</option>
-        <option value="600" selected>10 min</option>
-        <option value="900">15 min</option>
-      </select>
-    </div>
-    <div><label>Verlängerung</label>
-      <select id="cfg-ot">
-        <option value="300" selected>5 min Sudden Death</option>
-        <option value="600">10 min Sudden Death</option>
-      </select>
-    </div>
-  </div>
-  <button class="btn btn-blue" onclick="applyConfig()">✅ Konfiguration übernehmen</button>
-</div>
 <div class="grid">
   <div class="card full-width">
     <h2>Spielzeit</h2>
@@ -144,7 +114,13 @@
   function send(cmd,extra={}){ ws.send(JSON.stringify({cmd,...extra})); }
   function applyConfig(){ send('SET_CONFIG',{gameMode:document.getElementById('cfg-mode').value,breakDuration:parseInt(document.getElementById('cfg-break').value),otDuration:parseInt(document.getElementById('cfg-ot').value),homeTeam:document.getElementById('cfg-home').value||'Heim',awayTeam:document.getElementById('cfg-away').value||'Gast'}); }
   function addPenalty(){ send('ADD_PENALTY',{team:document.getElementById('pen-team').value,player:document.getElementById('pen-player').value,duration:parseInt(document.getElementById('pen-duration').value)}); document.getElementById('pen-player').value=''; }
-  function confirmReset(){ if(confirm('Spiel wirklich zurücksetzen?'))send('RESET'); }
+
+  function confirmReset() {
+  if (confirm('Spiel wirklich zurücksetzen? Du wirst zu Spielstart weitergeleitet.')) {
+    send('RESET');
+    setTimeout(() => { window.location.href = '/gamestart.html'; }, 200);
+  }
+}
   function fmt(s){ const c=Math.ceil(s); return `${Math.floor(c/60)}:${String(c%60).padStart(2,'0')}`; }
   function phaseLabel(s){ const map={pregame:'Vor dem Spiel',break:'Pause',overtime:'Verlängerung (Sudden Death)',shootout:'Penalty / Shootout',ended:'Spiel beendet'}; if(map[s.phase])return map[s.phase]; const p=s.currentPeriod; if(s.gameMode==='2x20')return p===1?'1. Halbzeit':'2. Halbzeit'; return `${p}. Drittel`; }
   function render(s){
