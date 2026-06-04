@@ -1,0 +1,13 @@
+{
+  "name": "unihockey-matchuhr",
+  "version": "1.0.0",
+  "description": "Unihockey Spieluhr MVP",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.16.0"
+  }
+}
