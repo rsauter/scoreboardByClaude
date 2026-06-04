@@ -1,4 +1,4 @@
-# 🏒 Matchuhr – Unihockey Scoreboard
+# Matchuhr – Unihockey Scoreboard
 
 Ein webbasiertes Echtzeit-Scoreboard für Unihockey, entwickelt als Open-Source-Alternative zu kommerziellen Anzeigesystemen (z.B. Score Systems).
 
