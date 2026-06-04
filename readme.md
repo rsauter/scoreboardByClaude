@@ -44,12 +44,47 @@ Ein webbasiertes Echtzeit-Scoreboard für Unihockey, entwickelt als Open-Source-
 
 ## Installation
 
+## Installation
+
+### Voraussetzungen
+- Node.js 24+
+- Docker
+
+### Setup
+
 ```bash
-git clone https://github.com/DEIN-USERNAME/matchuhr.git
-cd matchuhr
+git clone https://github.com/rsauter/scoreBoardByClaude.git
+cd scoreBoardByClaude
+```
+
+**PostgreSQL via Docker starten:**
+```bash
+docker run -d --name scoreboard-db \
+  -e POSTGRES_PASSWORD=geheim \
+  -e POSTGRES_DB=scoreboard \
+  -p 5432:5432 \
+  postgres:16
+```
+
+**Umgebungsvariablen konfigurieren:**
+```bash
+cp .env.example .env
+# .env anpassen (DB-Passwort etc.)
+```
+
+**Dependencies installieren & DB migrieren:**
+```bash
 npm install
+npx prisma migrate deploy
 npm start
 ```
+
+### URLs
+- Spielstart: http://localhost:3000/gamestart.html
+- Operator:   http://localhost:3000/operator.html
+- Display:    http://localhost:3000/display.html
+- Manager:    http://localhost:3000/manager.html
+- Prisma Studio (optional): `npx prisma studio` → http://localhost:5555
 
 ## Verwendung
 
