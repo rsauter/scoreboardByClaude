@@ -38,12 +38,20 @@ model TeamPlayer {
 }
 
 model Match {
-  id         Int      @id @default(autoincrement())
-  homeTeam   Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  homeTeamId Int
-  awayTeam   Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  awayTeamId Int
-  scoreHome  Int      @default(0)
-  scoreAway  Int      @default(0)
-  playedAt   DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  homeTeam      Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  homeTeamId    Int
+  awayTeam      Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  awayTeamId    Int
+  scoreHome     Int      @default(0)
+  scoreAway     Int      @default(0)
+  gameMode      String   @default("3x20")
+  phase         String   @default("pregame")
+  currentPeriod String   @default("1")
+  timeRemaining Float    @default(1200)
+  running       Boolean  @default(false)
+  penalties     Json     @default("[]")
+  startedAt     DateTime?
+  savedAt       DateTime @updatedAt
+  playedAt      DateTime @default(now())
 }
