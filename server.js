@@ -191,6 +191,16 @@ function handleCommand(msg) {
         state.awayTimeouts--; state.timeoutActive = 'away'; state.timeoutRemaining = 30; state.running = false;
       }
       break;
+    case 'ADJUST_TIME': {
+      const delta = msg.delta; // positiv = vorwärts, negativ = rückwärts
+      state.timeRemaining = Math.max(0, state.timeRemaining + delta);
+      // Alle aktiven Strafen um denselben Delta anpassen (nicht Timeout!)
+      state.penalties = state.penalties.map(p => ({
+        ...p,
+        remaining: Math.max(0, p.remaining + delta)
+      }));
+      break;
+    } 
   }
   broadcast({ type: 'STATE', state });
 }

@@ -28,6 +28,32 @@
   .to-remaining { font-size: 1.8rem; font-weight: bold; color: #fdcb6e; text-align: center; }
   .shootout-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: center; }
   .so-score { font-size: 2rem; font-weight: bold; color: #fd79a8; }
+
+  /* Zeitkorrektur */
+  .time-adjust {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 6px 0 10px;
+  }
+  .time-adjust.visible { display: flex; }
+  .time-adjust-label { font-size: 0.75rem; color: #636e72; }
+  .btn-adjust {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    font-weight: bold;
+    padding: 0;
+    line-height: 1;
+    background: #0f3460;
+    color: #74b9ff;
+    border: 1px solid #0984e3;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-adjust:hover { background: #1a4a8e; }
+  .btn-adjust:active { background: #0984e3; color: #fff; }
 </style>
 </head>
 <body>
@@ -38,6 +64,14 @@
     <h2>Spielzeit</h2>
     <div class="clock-display" id="clock">20:00</div>
     <div class="phase-display" id="phase-label">–</div>
+
+    <!-- Zeitkorrektur – nur sichtbar wenn pausiert -->
+    <div class="time-adjust" id="time-adjust">
+      <span class="time-adjust-label">Zeitkorrektur</span>
+      <button class="btn-adjust" onclick="adjustTime(-1)" title="−1 Sekunde">−</button>
+      <button class="btn-adjust" onclick="adjustTime(+1)" title="+1 Sekunde">+</button>
+    </div>
+
     <div class="row row-center">
       <button class="btn btn-green" onclick="send('START')">▶ Start</button>
       <button class="btn btn-red" onclick="send('STOP')">⏸ Stop</button>
@@ -102,6 +136,7 @@
   ws.onclose = () => document.getElementById('conn-status').textContent = '🔴 Getrennt – Seite neu laden';
   ws.onmessage = e => { const m = JSON.parse(e.data); if (m.type==='STATE'){st=m.state;render(st);} if(m.type==='BUZZER')playBuzzer(m.reason); };
   function send(cmd, extra={}) { ws.send(JSON.stringify({cmd,...extra})); }
+  function adjustTime(delta) { send('ADJUST_TIME', { delta }); }
   function addPenalty() { send('ADD_PENALTY',{team:document.getElementById('pen-team').value,player:document.getElementById('pen-player').value,duration:parseInt(document.getElementById('pen-duration').value)}); document.getElementById('pen-player').value=''; }
   function confirmReset() {
     if (confirm('Spiel wirklich zurücksetzen? Du wirst zu Spielstart weitergeleitet.')) {
@@ -114,6 +149,12 @@
   function render(s) {
     document.getElementById('clock').textContent=fmt(s.timeRemaining);
     document.getElementById('phase-label').textContent=phaseLabel(s);
+
+    // Zeitkorrektur nur anzeigen wenn: pausiert, aktive Spielphase, kein Timeout
+    const adjustEl = document.getElementById('time-adjust');
+    const showAdjust = !s.running && !s.timeoutActive && ['period','overtime'].includes(s.phase);
+    adjustEl.classList.toggle('visible', showAdjust);
+
     document.getElementById('op-home-name').textContent=s.homeTeam;
     document.getElementById('op-away-name').textContent=s.awayTeam;
     document.getElementById('op-home-score').textContent=s.homeScore;
