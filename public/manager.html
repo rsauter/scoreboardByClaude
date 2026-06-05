@@ -136,6 +136,8 @@
 </head>
 <body>
 
+  <div class="status-bar" id="conn-status">Verbinde...</div>
+
 <div class="nav-links">
   <a href="/gamestart.html">🏒 Spielstart</a>
   <a href="/operator.html">🎮 Operator</a>
@@ -204,9 +206,11 @@
     </div>
   </div>
 </div>
-
+<script src="/app.js"></script>
 <script>
   let teams = [];
+    
+  updateStatusBar().then(()=> console.log('status updated'));
 
   // ─── API ────────────────────────────────────────────────────────────────────
   async function loadTeams() {
@@ -330,6 +334,8 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   loadTeams();
+  updateStatusBar();
 </script>
+
 </body>
 </html>

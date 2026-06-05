@@ -54,6 +54,16 @@ app.delete('/api/teams/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Other API features ───────────────────────────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ db: 'ok' });
+  } catch (e) {
+    res.json({ db: 'error' });
+  }
+});
+
 // ─── Game State (In-Memory) ───────────────────────────────────────────────────
 let state = createInitialState();
 

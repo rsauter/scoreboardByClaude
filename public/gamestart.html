@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matchuhr – Spielstart</title>
 <link rel="stylesheet" href="/style.css">
+<script src="/app.js"></script>
 <style>
   /* ─── Gamestart-spezifisch ────────────────────────────────────────────────── */
   body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
@@ -18,6 +19,8 @@
 </style>
 </head>
 <body>
+
+<div class="status-bar" id="conn-status">Verbinde...</div>
 
 <div class="nav-links">
   <a href="/manager.html">⚙️ Stammdaten verwalten</a>
@@ -81,6 +84,9 @@
 <script>
   const ws = new WebSocket(`ws://${location.host}`);
   let knownTeams = [];
+
+  ws.onopen  = () => updateStatusBar('🟢 Verbunden');
+  ws.onclose = () => updateStatusBar('🔴 Getrennt – Seite neu laden');
 
   async function loadTeams() {
     try {
