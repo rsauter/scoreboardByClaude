@@ -18,7 +18,6 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 app.use(express.static(path.join(__dirname, 'public')));
-
 app.use(express.json());
 
 // ─── Teams API ────────────────────────────────────────────────────────────────
@@ -66,6 +65,7 @@ app.get('/api/health', async (req, res) => {
 
 // ─── Game State (In-Memory) ───────────────────────────────────────────────────
 let state = createInitialState();
+let currentMatchId = null; // ID des aktiven Match in der DB
 
 function createInitialState() {
   return {
@@ -90,6 +90,66 @@ function createInitialState() {
     awayShootout: 0,
     lastTick: null,
   };
+}
+
+// ─── Crash Recovery: State in DB speichern ───────────────────────────────────
+async function saveStateToDb() {
+  if (!currentMatchId) return;
+  try {
+    await prisma.match.update({
+      where: { id: currentMatchId },
+      data: {
+        scoreHome:     state.homeScore,
+        scoreAway:     state.awayScore,
+        gameMode:      state.gameMode,
+        phase:         state.phase,
+        currentPeriod: String(state.currentPeriod),
+        timeRemaining: state.timeRemaining,
+        running:       false, // beim Speichern immer als gestoppt markieren
+        penalties:     state.penalties,
+      }
+    });
+  } catch (e) {
+    console.error('State save failed:', e.message);
+  }
+}
+
+// Alle 5 Sekunden speichern
+setInterval(saveStateToDb, 5000);
+
+// ─── Crash Recovery: Letzten State beim Start laden ──────────────────────────
+async function loadLastMatch() {
+  try {
+    const match = await prisma.match.findFirst({
+      where: { phase: { not: 'ended' } },
+      orderBy: { savedAt: 'desc' },
+      include: { homeTeam: true, awayTeam: true }
+    });
+
+    if (!match) return;
+
+    console.log(`\n⚠️  Unbeendetes Spiel gefunden: ${match.homeTeam.name} vs ${match.awayTeam.name}`);
+    console.log(`   Letzter Stand: ${match.scoreHome}:${match.scoreAway} | Phase: ${match.phase} | Zeit: ${Math.floor(match.timeRemaining)}s\n`);
+
+    currentMatchId = match.id;
+    state = {
+      ...createInitialState(),
+      homeTeam:      match.homeTeam.name,
+      awayTeam:      match.awayTeam.name,
+      homeScore:     match.scoreHome,
+      awayScore:     match.scoreAway,
+      gameMode:      match.gameMode,
+      phase:         match.phase,
+      currentPeriod: isNaN(match.currentPeriod) ? match.currentPeriod : parseInt(match.currentPeriod),
+      timeRemaining: match.timeRemaining,
+      running:       false,
+      penalties:     Array.isArray(match.penalties) ? match.penalties : [],
+      periodDuration: match.gameMode === '1x24' ? 24 * 60 : 20 * 60,
+    };
+
+  } catch (e) {
+    console.error('loadLastMatch failed:', e.message);
+  }
 }
 
 // ─── Server-side clock tick (every 100ms) ────────────────────────────────────
@@ -140,8 +200,6 @@ function startTick() {
   }, 100);
 }
 
-startTick();
-
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 function broadcast(msg) {
   const data = JSON.stringify(msg);
@@ -156,32 +214,86 @@ wss.on('connection', ws => {
   });
 });
 
-function handleCommand(msg) {
+async function handleCommand(msg) {
   switch (msg.cmd) {
-    case 'SET_CONFIG':
-      state.gameMode = msg.gameMode;
+    case 'SET_CONFIG': {
+      state.gameMode     = msg.gameMode;
       state.breakDuration = msg.breakDuration;
-      state.otDuration = msg.otDuration;
-      state.homeTeam = msg.homeTeam;
-      state.awayTeam = msg.awayTeam;
+      state.otDuration   = msg.otDuration;
+      state.homeTeam     = msg.homeTeam;
+      state.awayTeam     = msg.awayTeam;
       state.periodDuration = msg.gameMode === '1x24' ? 24 * 60 : 20 * 60;
       state.timeRemaining = state.periodDuration;
-      state.phase = 'pregame';
+      state.phase        = 'pregame';
       state.currentPeriod = 1;
+
+      // Match in DB anlegen (oder neues erstellen wenn keins aktiv)
+      try {
+        // Altes unbeendetes Match als ended markieren
+        if (currentMatchId) {
+          await prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended' } });
+        }
+
+        // Teams in DB suchen oder Freitext-Fallback
+        const homeTeamDb = await prisma.team.findFirst({ where: { OR: [{ name: msg.homeTeam }, { abbreviation: msg.homeTeam }] } });
+        const awayTeamDb = await prisma.team.findFirst({ where: { OR: [{ name: msg.awayTeam }, { abbreviation: msg.awayTeam }] } });
+
+        // Falls Team nicht in DB: temporär anlegen
+        const homeTeam = homeTeamDb || await prisma.team.create({ data: { name: msg.homeTeam, abbreviation: msg.homeTeam, color: '#00d4ff', organization: '' } });
+        const awayTeam = awayTeamDb || await prisma.team.create({ data: { name: msg.awayTeam, abbreviation: msg.awayTeam, color: '#ff6b6b', organization: '' } });
+
+        const match = await prisma.match.create({
+          data: {
+            homeTeamId:    homeTeam.id,
+            awayTeamId:    awayTeam.id,
+            gameMode:      msg.gameMode,
+            phase:         'pregame',
+            currentPeriod: '1',
+            timeRemaining: state.periodDuration,
+            running:       false,
+            penalties:     [],
+          }
+        });
+        currentMatchId = match.id;
+        console.log(`✅ Match #${currentMatchId} erstellt: ${msg.homeTeam} vs ${msg.awayTeam}`);
+      } catch (e) {
+        console.error('Match create failed:', e.message);
+      }
       break;
+    }
     case 'START':
       if (!state.running && state.phase !== 'ended') {
         state.running = true;
         state.lastTick = Date.now();
         if (state.phase === 'pregame') state.phase = 'period';
+
+        // startedAt beim ersten Start setzen
+        if (currentMatchId) {
+          try {
+            const match = await prisma.match.findUnique({ where: { id: currentMatchId } });
+            if (!match.startedAt) {
+              await prisma.match.update({ where: { id: currentMatchId }, data: { startedAt: new Date(), phase: 'period' } });
+            }
+          } catch (e) { console.error('startedAt update failed:', e.message); }
+        }
       }
       break;
     case 'STOP':
       state.running = false;
       state.lastTick = null;
+      await saveStateToDb(); // sofort speichern beim Stop
       break;
-    case 'NEXT_PHASE': advancePhase(); break;
-    case 'RESET': state = createInitialState(); break;
+    case 'NEXT_PHASE':
+      advancePhase();
+      await saveStateToDb();
+      break;
+    case 'RESET':
+      if (currentMatchId) {
+        try { await prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended' } }); } catch (e) {}
+      }
+      currentMatchId = null;
+      state = createInitialState();
+      break;
     case 'GOAL_HOME': state.homeScore++; break;
     case 'GOAL_AWAY': state.awayScore++; break;
     case 'UNDO_HOME': state.homeScore = Math.max(0, state.homeScore - 1); break;
@@ -202,15 +314,14 @@ function handleCommand(msg) {
       }
       break;
     case 'ADJUST_TIME': {
-      const delta = msg.delta; // positiv = vorwärts, negativ = rückwärts
+      const delta = msg.delta;
       state.timeRemaining = Math.max(0, state.timeRemaining + delta);
-      // Alle aktiven Strafen um denselben Delta anpassen (nicht Timeout!)
       state.penalties = state.penalties.map(p => ({
         ...p,
         remaining: Math.max(0, p.remaining + delta)
       }));
       break;
-    } 
+    }
   }
   broadcast({ type: 'STATE', state });
 }
@@ -238,19 +349,22 @@ function advancePhase() {
     state.phase = 'shootout'; state.currentPeriod = 'SO'; state.timeRemaining = 0;
   } else if (state.phase === 'shootout') {
     state.phase = 'ended';
+    if (currentMatchId) {
+      prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended', scoreHome: state.homeScore, scoreAway: state.awayScore } }).catch(e => console.error(e.message));
+    }
   }
 }
 
-// ─── TODO: PostgreSQL ─────────────────────────────────────────────────────────
-// Hier später anbinden: pg / Prisma
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Server start ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log('\n🏒 Unihockey Matchuhr läuft!');
-  console.log(`   Operator:     http://localhost:${PORT}/gamestart.html`);
-  console.log(`   Display:      http://localhost:${PORT}/display.html\n`);
-  console.log(`   Manage Teams: http://localhost:${PORT}/manager.html\n`);
+  console.log(`   Spielstart:   http://localhost:${PORT}/gamestart.html`);
+  console.log(`   Operator:     http://localhost:${PORT}/operator.html`);
+  console.log(`   Display:      http://localhost:${PORT}/display.html`);
+  console.log(`   Manager:      http://localhost:${PORT}/manager.html`);
   console.log(`\n   Prisma Studio: npx prisma studio  →  http://localhost:5555\n`);
 
+  await loadLastMatch();
+  startTick();
 });
