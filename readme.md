@@ -1,6 +1,6 @@
 # Matchuhr – Unihockey Scoreboard
 
-Ein webbasiertes Echtzeit-Scoreboard für Unihockey, entwickelt als Open-Source-Alternative zu kommerziellen Anzeigesystemen (z.B. Score Systems).
+Ein webbasiertes Echtzeit-Scoreboard für Unihockey, entwickelt als Open-Source-Alternative zu kommerziellen Anzeigesystemen (z.B. ScoreBoard-system.com).
 
 ## Features
 
@@ -12,8 +12,12 @@ Ein webbasiertes Echtzeit-Scoreboard für Unihockey, entwickelt als Open-Source-
 - **Spielstand** – Tore Heim & Gast mit Korrekturmöglichkeit
 - **Strafen** – bis zu 2 gleichzeitige pro Team, 2 / 5 / 10 Minuten, laufen automatisch ab
 - **Timeout** – 30 Sekunden, 1 pro Team
+- **Zeitkorrektur** – [−] [+] Buttons zum Korrigieren wenn Schiri zu spät gestoppt hat (passt Spielzeit und aktive Strafen an)
 - **Buzzer** – akustisches Signal bei Ablauf von Spielzeit, Pause, Timeout und Strafen
 - **Echtzeit-Sync** – beliebig viele Anzeigegeräte (Beamer, LED-Wand, Tablets) via WebSocket
+- **Crash Recovery** – Game State wird alle 5 Sekunden in DB gespeichert, beim Neustart automatisch wiederhergestellt
+- **Stammdaten** – Teams (Name, Kürzel, Farbe, Organisation) via Manager verwalten
+- **DB Health Status** – Verbindungsstatus Datenbank in allen Seiten sichtbar
 
 ## Architektur
 
@@ -21,36 +25,39 @@ Ein webbasiertes Echtzeit-Scoreboard für Unihockey, entwickelt als Open-Source-
 ┌─────────────────┐        WebSocket        ┌──────────────────┐
 │  Operator       │ ──────────────────────► │  Server (Node.js)│
 │  (operator.html)│ ◄────────────────────── │  Game State      │
-└─────────────────┘     State Broadcasts    │  In-Memory       │
+└─────────────────┘     State Broadcasts    │  In-Memory + DB  │
                                             └────────┬─────────┘
 ┌─────────────────┐                                  │
 │  Display 1      │ ◄────────────────────────────────┤
 │  (display.html) │         WebSocket                │
 └─────────────────┘                                  │
-┌─────────────────┐                                  │
-│  Display n      │ ◄────────────────────────────────┘
-│  (display.html) │
-└─────────────────┘
+┌─────────────────┐                         ┌────────┴─────────┐
+│  Display n      │ ◄────────────────────── │  PostgreSQL      │
+│  (display.html) │                         │  (Docker)        │
+└─────────────────┘                         └──────────────────┘
 ```
 
-- **Backend:** Node.js + Express + WebSocket (`ws`)
+- **Backend:** Node.js + Express + WebSocket (`ws`) + Prisma ORM
 - **Frontend:** Vanilla HTML/CSS/JavaScript, kein Framework
-- **State:** In-Memory (MVP) – PostgreSQL-Anbindung vorbereitet
+- **Datenbank:** PostgreSQL (via Docker)
+- **State:** In-Memory (Echtzeit) + PostgreSQL (Persistenz / Crash Recovery)
 - **Audio:** Web Audio API (kein externes Soundfile nötig)
+
+## Seiten
+
+| URL | Beschreibung |
+|-----|-------------|
+| `/gamestart.html` | Spielkonfiguration – Teams wählen, Modus, Start |
+| `/operator.html` | Spielsteuerung – Uhr, Tore, Strafen, Timeouts |
+| `/display.html` | Anzeigetafel – für Beamer oder LED-Wand |
+| `/manager.html` | Stammdaten – Teams verwalten |
 
 ## Voraussetzungen
 
-- Node.js >= 18
-
-## Installation
-
-## Installation
-
-### Voraussetzungen
 - Node.js 24+
 - Docker
 
-### Setup
+## Installation
 
 ```bash
 git clone https://github.com/rsauter/scoreBoardByClaude.git
@@ -79,32 +86,30 @@ npx prisma migrate deploy
 npm start
 ```
 
-### URLs
+## URLs (lokal)
+
 - Spielstart: http://localhost:3000/gamestart.html
 - Operator:   http://localhost:3000/operator.html
 - Display:    http://localhost:3000/display.html
 - Manager:    http://localhost:3000/manager.html
 - Prisma Studio (optional): `npx prisma studio` → http://localhost:5555
 
-## Verwendung
-
-| URL | Beschreibung |
-|-----|-------------|
-| `http://localhost:3000/operator.html` | Steuerung (1 Gerät) |
-| `http://localhost:3000/display.html` | Anzeige (beliebig viele Geräte) |
-
-Für den Einsatz im lokalen Netzwerk (z.B. Halle):
+Für den Einsatz im lokalen Netzwerk (z.B. Sporthalle):
 - Server läuft auf dem Operator-Laptop
 - Display-URL: `http://192.168.x.x:3000/display.html`
 
 ## Roadmap
 
-- [ ] PostgreSQL-Anbindung (Spielresultate, Statistiken)
+- [ ] Display: Verbindungs-/Spielstatus Dot (grün/gelb/rot)
+- [ ] Spieler-CRUD im Manager
+- [ ] Tore pro Spieler erfassen (Statistik)
+- [ ] Match-History / Resultate
 - [ ] Authentifizierung Operator-View
 - [ ] Mobile-optimierter Operator (Schiri-Tablet)
 - [ ] Ligaverwaltung / Spielplan
 - [ ] QR-Code auf Display für schnelle Verbindung
 - [ ] Externer Buzzer / Soundfile-Unterstützung
+- [ ] RS485-Protokoll für physische LED-Anzeigetafeln
 
 ## Lizenz
 
@@ -112,4 +117,4 @@ MIT
 
 ## Autor
 
-Roger Sauter – [@rsauter](https://github.com/rsauter) - 2026
+Roger Sauter – [@rsauter](https://github.com/rsauter) – 2026
