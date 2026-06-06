@@ -31,6 +31,11 @@
   .ended-banner { font-size: 5vw; font-weight: 900; color: #fdcb6e; text-align: center; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
   .conn-dot { position: fixed; top: 10px; right: 14px; font-size: 1.2vw; color: #888; }
+  .game-status-bullet { width: 1.8vw; height: 1.8vw; border-radius: 50%; margin: 0 auto 1vh; transition: background 0.3s, box-shadow 0.3s; }
+  .game-status-bullet.running { background: #00ff88; box-shadow: 0 0 12px rgba(0,255,136,0.8); }
+  .game-status-bullet.timeout { background: #fdcb6e; box-shadow: 0 0 12px rgba(253,203,110,0.8); }
+  .game-status-bullet.stopped { background: #ff6b6b; box-shadow: 0 0 12px rgba(255,107,107,0.6); }
+  .game-status-bullet.inactive { background: #444; box-shadow: none; }
 </style>
 </head>
 <body>
@@ -43,6 +48,7 @@
   <div class="team"><div class="team-name" id="away-name">GAST</div><div class="team-score away-score" id="away-score">0</div></div>
 </div>
 <div class="clock" id="clock">20:00</div>
+<div class="game-status-bullet inactive" id="game-status-bullet"></div>
 <div class="penalties">
   <div class="pen-side"><div class="pen-title" id="pen-home-title">Strafen Heim</div><div id="pen-home-list"></div></div>
   <div class="pen-side"><div class="pen-title" id="pen-away-title">Strafen Gast</div><div id="pen-away-list"></div></div>
@@ -85,6 +91,13 @@
     document.getElementById('so-home').textContent=s.homeShootout;
     document.getElementById('so-away').textContent=s.awayShootout;
     document.getElementById('ended-banner').style.display=s.phase==='ended'?'block':'none';
+    // Game status bullet
+    const bullet=document.getElementById('game-status-bullet');
+    bullet.className='game-status-bullet';
+    if(s.phase==='ended'||s.phase==='pregame')bullet.classList.add('inactive');
+    else if(s.timeoutActive)bullet.classList.add('timeout');
+    else if(s.running)bullet.classList.add('running');
+    else bullet.classList.add('stopped');
   }
   const ctx=new(window.AudioContext||window.webkitAudioContext)();
   function playBuzzer(reason){ const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g);g.connect(ctx.destination); if(reason==='period'){o.frequency.value=220;g.gain.value=1.0;}else if(reason==='timeout'){o.frequency.value=660;g.gain.value=0.6;}else{o.frequency.value=440;g.gain.value=0.5;} o.start(); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(reason==='period'?2:0.8)); o.stop(ctx.currentTime+(reason==='period'?2:0.8)); }
