@@ -1,162 +1,44 @@
-/* ─── Reset ─────────────────────────────────────────────────────────────────── */
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* ─── Projekt-spezifische Overrides (DaisyUI dark-Theme ist Basis) ────────── */
 
-/* ─── Base ──────────────────────────────────────────────────────────────────── */
-body {
-  background: #1a1a2e;
-  color: #eee;
-  font-family: 'Segoe UI', sans-serif;
-  padding: 16px;
-}
+/* Uhr-Schrift immer tabellarisch */
+.clock-display { font-variant-numeric: tabular-nums; }
 
-/* ─── Typography ────────────────────────────────────────────────────────────── */
-h1 {
-  text-align: center;
-  color: #00d4ff;
-  margin-bottom: 16px;
-  font-size: 1.4rem;
-}
-h1.large { font-size: 1.6rem; margin-bottom: 8px; }
-
-label {
-  font-size: 0.8rem;
-  color: #aaa;
-  display: block;
-  margin-bottom: 4px;
-}
-
-.subtitle {
-  text-align: center;
-  color: #aaa;
-  font-size: 0.85rem;
-  margin-bottom: 28px;
-}
-
-.hint {
-  font-size: 0.75rem;
-  color: #636e72;
-  margin-top: 6px;
-  text-align: center;
-}
-
-/* ─── Layout ────────────────────────────────────────────────────────────────── */
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.full-width { grid-column: 1 / -1; }
-
-.row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-.row-center { justify-content: center; }
-
-.form-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-
-/* ─── Card ──────────────────────────────────────────────────────────────────── */
-.card {
-  background: #16213e;
-  border-radius: 10px;
-  padding: 14px;
-}
-.card h2 {
-  font-size: 0.85rem;
-  color: #aaa;
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-/* ─── Buttons ───────────────────────────────────────────────────────────────── */
-.btn {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: bold;
-  transition: opacity 0.2s;
-}
-.btn:hover   { opacity: 0.85; }
-.btn:active  { opacity: 0.7; }
-
-.btn-green  { background: #00b894; color: #fff; }
-.btn-red    { background: #d63031; color: #fff; }
-.btn-blue   { background: #0984e3; color: #fff; }
-.btn-orange { background: #e17055; color: #fff; }
-.btn-gray   { background: #636e72; color: #fff; }
-.btn-yellow { background: #fdcb6e; color: #1a1a2e; }
-
-.btn-sm     { padding: 6px 10px;  font-size: 0.8rem; }
-.btn-xs     { padding: 4px 8px;   font-size: 0.75rem; }
-.btn-large  { padding: 14px 28px; font-size: 1.05rem; width: 100%; margin-top: 4px; }
-
-/* ─── Form Elements ─────────────────────────────────────────────────────────── */
-select,
-input[type=text],
-input[type=number] {
-  background: #0f3460;
-  color: #eee;
-  border: 1px solid #0984e3;
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-size: 0.85rem;
-  width: 100%;
-}
-select:focus,
-input[type=text]:focus,
-input[type=number]:focus {
-  outline: none;
-  border-color: #00d4ff;
-}
-
-/* ─── Status Bar ────────────────────────────────────────────────────────────── */
-.status-bar {
-  text-align: center;
-  padding: 6px;
-  background: #0f3460;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  color: #74b9ff;
-  margin-bottom: 12px;
-}
-
-/* ─── Navigation ────────────────────────────────────────────────────────────── */
-.nav-links { display: flex; gap: 16px; margin-bottom: 24px; }
-.nav-links a { color: #74b9ff; font-size: 0.82rem; text-decoration: none; }
-.nav-links a:hover { color: #00d4ff; text-decoration: underline; }
-
-/* ─── Autocomplete ──────────────────────────────────────────────────────────── */
+/* Autocomplete-Dropdown */
 .autocomplete-list {
   position: absolute;
   top: 100%; left: 0; right: 0;
-  z-index: 10;
-  background: #0f3460;
-  border: 1px solid #0984e3;
+  z-index: 50;
+  background: oklch(var(--b2));
+  border: 1px solid oklch(var(--bc) / 0.2);
   border-top: none;
-  border-radius: 0 0 6px 6px;
+  border-radius: 0 0 0.5rem 0.5rem;
   max-height: 160px;
   overflow-y: auto;
 }
 .autocomplete-list div {
-  padding: 7px 10px;
+  padding: 7px 12px;
   cursor: pointer;
   font-size: 0.85rem;
-  border-bottom: 1px solid #1a3a6e;
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
-.autocomplete-list div:hover { background: #1a4a8e; color: #00d4ff; }
+.autocomplete-list div:hover {
+  background: oklch(var(--p) / 0.15);
+  color: oklch(var(--p));
+}
 .autocomplete-list div:last-child { border-bottom: none; }
 
-/* ─── Penalty List ──────────────────────────────────────────────────────────── */
-.penalty-list { list-style: none; }
-.penalty-list li {
-  background: #0f3460;
-  border-radius: 6px;
-  padding: 6px 10px;
-  margin-bottom: 6px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.85rem;
+/* Grid-Hilfsklassen */
+.full-width { grid-column: 1 / -1; }
+
+/* Zeitkorrektur-Buttons */
+.btn-adjust {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: bold;
+  padding: 0;
+  line-height: 1;
 }
-.pen-time { font-weight: bold; color: #ff7675; }
+
+/* Display-Seite: volle Anzeige bleibt custom */
+.display-clock  { font-variant-numeric: tabular-nums; }

@@ -1,183 +1,232 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matchuhr – Operator</title>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="/style.css">
 <script src="/app.js"></script>
-<style>
-  /* ─── Operator-spezifisch ─────────────────────────────────────────────────── */
-  .clock-display {
-    text-align: center;
-    font-size: 3.5rem;
-    font-weight: bold;
-    color: #00d4ff;
-    font-variant-numeric: tabular-nums;
-  }
-  .phase-display {
-    text-align: center;
-    font-size: 1rem;
-    color: #aaa;
-    margin: 4px 0 10px;
-  }
-  .score-box { display: flex; align-items: center; justify-content: space-around; }
-  .score-team { text-align: center; }
-  .score-team .name  { font-size: 0.9rem; color: #aaa; }
-  .score-team .goals { font-size: 3rem; font-weight: bold; color: #fff; }
-  .timeout-box { display: flex; justify-content: space-around; align-items: center; }
-  .to-remaining { font-size: 1.8rem; font-weight: bold; color: #fdcb6e; text-align: center; }
-  .shootout-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: center; }
-  .so-score { font-size: 2rem; font-weight: bold; color: #fd79a8; }
-
-  /* Zeitkorrektur */
-  .time-adjust {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin: 6px 0 10px;
-  }
-  .time-adjust.visible { display: flex; }
-  .time-adjust-label { font-size: 0.75rem; color: #636e72; }
-  .btn-adjust {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    font-size: 1.2rem;
-    font-weight: bold;
-    padding: 0;
-    line-height: 1;
-    background: #0f3460;
-    color: #74b9ff;
-    border: 1px solid #0984e3;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-adjust:hover { background: #1a4a8e; }
-  .btn-adjust:active { background: #0984e3; color: #fff; }
-</style>
 </head>
-<body>
-<h1>⏱ Matchuhr – Operator</h1>
-<div class="status-bar" id="conn-status">Verbinde...</div>
-<div class="grid">
-  <div class="card full-width">
-    <h2>Spielzeit</h2>
-    <div class="clock-display" id="clock">20:00</div>
-    <div class="phase-display" id="phase-label">–</div>
+<body class="bg-base-300 p-4">
 
-    <!-- Zeitkorrektur – nur sichtbar wenn pausiert -->
-    <div class="time-adjust" id="time-adjust">
-      <span class="time-adjust-label">Zeitkorrektur</span>
-      <button class="btn-adjust" onclick="adjustTime(-1)" title="−1 Sekunde">−</button>
-      <button class="btn-adjust" onclick="adjustTime(+1)" title="+1 Sekunde">+</button>
+  <h1 class="text-2xl font-bold text-primary text-center mb-3">⏱ Matchuhr – Operator</h1>
+  <div id="conn-status" class="alert alert-info py-1 px-4 text-sm mb-4 justify-center">Verbinde...</div>
+
+  <div class="grid grid-cols-2 gap-3">
+
+    <!-- Spielzeit -->
+    <div class="card bg-base-100 shadow col-span-2">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-2">Spielzeit</h2>
+        <div class="clock-display text-5xl font-bold text-primary text-center" id="clock">20:00</div>
+        <div class="text-center text-sm text-base-content/50 my-1" id="phase-label">–</div>
+
+        <!-- Zeitkorrektur -->
+        <div class="hidden items-center justify-center gap-3 my-1" id="time-adjust">
+          <span class="text-xs text-base-content/40">Zeitkorrektur</span>
+          <button onclick="adjustTime(-1)" title="−1 Sekunde"
+            class="btn-adjust btn btn-sm btn-ghost border border-base-content/20 text-primary">−</button>
+          <button onclick="adjustTime(+1)" title="+1 Sekunde"
+            class="btn-adjust btn btn-sm btn-ghost border border-base-content/20 text-primary">+</button>
+        </div>
+
+        <div class="flex flex-wrap gap-2 justify-center mt-2">
+          <button onclick="send('START')"      class="btn btn-success btn-sm">▶ Start</button>
+          <button onclick="send('STOP')"       class="btn btn-error btn-sm">⏸ Stop</button>
+          <button onclick="send('NEXT_PHASE')" class="btn btn-warning btn-sm">⏭ Nächste Phase</button>
+          <button onclick="confirmReset()"     class="btn btn-ghost btn-sm">🔄 Reset</button>
+        </div>
+      </div>
     </div>
 
-    <div class="row row-center">
-      <button class="btn btn-green" onclick="send('START')">▶ Start</button>
-      <button class="btn btn-red" onclick="send('STOP')">⏸ Stop</button>
-      <button class="btn btn-orange" onclick="send('NEXT_PHASE')">⏭ Nächste Phase</button>
-      <button class="btn btn-gray btn-sm" onclick="confirmReset()">🔄 Reset</button>
-    </div>
-  </div>
-  <div class="card">
-    <h2>Spielstand</h2>
-    <div class="score-box">
-      <div class="score-team">
-        <div class="name" id="op-home-name">Heim</div>
-        <div class="goals" id="op-home-score">0</div>
-        <div class="row"><button class="btn btn-green btn-sm" onclick="send('GOAL_HOME')">+1</button><button class="btn btn-gray btn-sm" onclick="send('UNDO_HOME')">−1</button></div>
-      </div>
-      <div style="font-size:2rem;color:#aaa">:</div>
-      <div class="score-team">
-        <div class="name" id="op-away-name">Gast</div>
-        <div class="goals" id="op-away-score">0</div>
-        <div class="row"><button class="btn btn-green btn-sm" onclick="send('GOAL_AWAY')">+1</button><button class="btn btn-gray btn-sm" onclick="send('UNDO_AWAY')">−1</button></div>
-      </div>
-    </div>
-  </div>
-  <div class="card">
-    <h2>Timeout (30 Sek.)</h2>
-    <div class="timeout-box">
-      <div style="text-align:center">
-        <div id="to-home-name">Heim</div>
-        <button class="btn btn-yellow btn-sm" id="btn-to-home" onclick="send('TIMEOUT',{team:'home'})">TO Heim</button>
-        <div style="font-size:0.75rem;color:#aaa;margin-top:4px" id="to-home-left"></div>
-      </div>
-      <div class="to-remaining" id="to-remaining" style="display:none">0:30</div>
-      <div style="text-align:center">
-        <div id="to-away-name">Gast</div>
-        <button class="btn btn-yellow btn-sm" id="btn-to-away" onclick="send('TIMEOUT',{team:'away'})">TO Gast</button>
-        <div style="font-size:0.75rem;color:#aaa;margin-top:4px" id="to-away-left"></div>
+    <!-- Spielstand -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Spielstand</h2>
+        <div class="flex items-center justify-around">
+          <div class="text-center">
+            <div class="text-sm text-base-content/50" id="op-home-name">Heim</div>
+            <div class="text-5xl font-bold" id="op-home-score">0</div>
+            <div class="flex gap-2 mt-1">
+              <button onclick="send('GOAL_HOME')" class="btn btn-success btn-xs">+1</button>
+              <button onclick="send('UNDO_HOME')" class="btn btn-ghost btn-xs">−1</button>
+            </div>
+          </div>
+          <div class="text-2xl text-base-content/30">:</div>
+          <div class="text-center">
+            <div class="text-sm text-base-content/50" id="op-away-name">Gast</div>
+            <div class="text-5xl font-bold" id="op-away-score">0</div>
+            <div class="flex gap-2 mt-1">
+              <button onclick="send('GOAL_AWAY')" class="btn btn-success btn-xs">+1</button>
+              <button onclick="send('UNDO_AWAY')" class="btn btn-ghost btn-xs">−1</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="card full-width">
-    <h2>Strafen</h2>
-    <div class="form-row-3" style="margin-bottom:8px">
-      <div><label>Team</label><select id="pen-team"><option value="home">Heim</option><option value="away">Gast</option></select></div>
-      <div><label>Spieler #</label><input type="text" id="pen-player" placeholder="z.B. 7"></div>
-      <div><label>Dauer</label><select id="pen-duration"><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option></select></div>
+
+    <!-- Timeout -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Timeout (30 Sek.)</h2>
+        <div class="flex items-center justify-around">
+          <div class="text-center">
+            <div class="text-sm mb-1" id="to-home-name">Heim</div>
+            <button id="btn-to-home" onclick="send('TIMEOUT',{team:'home'})"
+              class="btn btn-warning btn-sm">TO Heim</button>
+            <div class="text-xs text-base-content/40 mt-1" id="to-home-left"></div>
+          </div>
+          <div class="text-3xl font-bold text-warning hidden" id="to-remaining">0:30</div>
+          <div class="text-center">
+            <div class="text-sm mb-1" id="to-away-name">Gast</div>
+            <button id="btn-to-away" onclick="send('TIMEOUT',{team:'away'})"
+              class="btn btn-warning btn-sm">TO Gast</button>
+            <div class="text-xs text-base-content/40 mt-1" id="to-away-left"></div>
+          </div>
+        </div>
+      </div>
     </div>
-    <button class="btn btn-red btn-sm" onclick="addPenalty()">➕ Strafe erfassen</button>
-    <ul class="penalty-list" id="penalty-list" style="margin-top:10px"></ul>
-  </div>
-  <div class="card full-width" id="shootout-card" style="display:none">
-    <h2>Penalty / Shootout</h2>
-    <div class="shootout-grid">
-      <div><div id="so-home-name">Heim</div><div class="so-score" id="so-home-score">0</div><button class="btn btn-green btn-sm" onclick="send('SO_HOME')">Tor ✓</button></div>
-      <div><div id="so-away-name">Gast</div><div class="so-score" id="so-away-score">0</div><button class="btn btn-green btn-sm" onclick="send('SO_AWAY')">Tor ✓</button></div>
+
+    <!-- Strafen -->
+    <div class="card bg-base-100 shadow col-span-2">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Strafen</h2>
+        <div class="grid grid-cols-3 gap-2 mb-3">
+          <div>
+            <label class="label py-0"><span class="label-text text-xs">Team</span></label>
+            <select id="pen-team" class="select select-bordered select-sm w-full">
+              <option value="home">Heim</option>
+              <option value="away">Gast</option>
+            </select>
+          </div>
+          <div>
+            <label class="label py-0"><span class="label-text text-xs">Spieler #</span></label>
+            <input type="text" id="pen-player" placeholder="z.B. 7"
+              class="input input-bordered input-sm w-full">
+          </div>
+          <div>
+            <label class="label py-0"><span class="label-text text-xs">Dauer</span></label>
+            <select id="pen-duration" class="select select-bordered select-sm w-full">
+              <option value="2">2 min</option>
+              <option value="5">5 min</option>
+              <option value="10">10 min</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="addPenalty()" class="btn btn-error btn-sm">➕ Strafe erfassen</button>
+        <ul id="penalty-list" class="mt-3 space-y-1 list-none"></ul>
+      </div>
     </div>
-  </div>
-</div>
+
+    <!-- Shootout -->
+    <div class="card bg-base-100 shadow col-span-2 hidden" id="shootout-card">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Penalty / Shootout</h2>
+        <div class="grid grid-cols-2 gap-4 text-center">
+          <div>
+            <div class="text-sm mb-1" id="so-home-name">Heim</div>
+            <div class="text-4xl font-bold text-pink-400" id="so-home-score">0</div>
+            <button onclick="send('SO_HOME')" class="btn btn-success btn-sm mt-2">Tor ✓</button>
+          </div>
+          <div>
+            <div class="text-sm mb-1" id="so-away-name">Gast</div>
+            <div class="text-4xl font-bold text-pink-400" id="so-away-score">0</div>
+            <button onclick="send('SO_AWAY')" class="btn btn-success btn-sm mt-2">Tor ✓</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+
 <script>
   const ws = new WebSocket(`ws://${location.host}`);
   let st = {};
-  ws.onopen  = () => document.getElementById('conn-status').textContent = '🟢 Verbunden';
-  ws.onclose = () => document.getElementById('conn-status').textContent = '🔴 Getrennt – Seite neu laden';
-  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.type==='STATE'){st=m.state;render(st);} if(m.type==='BUZZER')playBuzzer(m.reason); };
+  ws.onopen    = () => document.getElementById('conn-status').textContent = '🟢 Verbunden';
+  ws.onclose   = () => document.getElementById('conn-status').textContent = '🔴 Getrennt – Seite neu laden';
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'STATE') { st = m.state; render(st); }
+    if (m.type === 'BUZZER') playBuzzer(m.reason);
+  };
   function send(cmd, extra={}) { ws.send(JSON.stringify({cmd,...extra})); }
   function adjustTime(delta) { send('ADJUST_TIME', { delta }); }
-  function addPenalty() { send('ADD_PENALTY',{team:document.getElementById('pen-team').value,player:document.getElementById('pen-player').value,duration:parseInt(document.getElementById('pen-duration').value)}); document.getElementById('pen-player').value=''; }
+  function addPenalty() {
+    send('ADD_PENALTY', {
+      team:     document.getElementById('pen-team').value,
+      player:   document.getElementById('pen-player').value,
+      duration: parseInt(document.getElementById('pen-duration').value)
+    });
+    document.getElementById('pen-player').value = '';
+  }
   function confirmReset() {
     if (confirm('Spiel wirklich zurücksetzen? Du wirst zu Spielstart weitergeleitet.')) {
       send('RESET');
       setTimeout(() => { window.location.href = '/gamestart.html'; }, 200);
     }
   }
-  function fmt(s) { const c=Math.ceil(s); return `${Math.floor(c/60)}:${String(c%60).padStart(2,'0')}`; }
-  function phaseLabel(s) { const map={pregame:'Vor dem Spiel',break:'Pause',overtime:'Verlängerung (Sudden Death)',shootout:'Penalty / Shootout',ended:'Spiel beendet'}; if(map[s.phase])return map[s.phase]; const p=s.currentPeriod; if(s.gameMode==='2x20')return p===1?'1. Halbzeit':'2. Halbzeit'; return `${p}. Drittel`; }
-  function render(s) {
-    document.getElementById('clock').textContent=fmt(s.timeRemaining);
-    document.getElementById('phase-label').textContent=phaseLabel(s);
-
-    // Zeitkorrektur nur anzeigen wenn: pausiert, aktive Spielphase, kein Timeout
-    const adjustEl = document.getElementById('time-adjust');
-    const showAdjust = !s.running && !s.timeoutActive && ['period','overtime'].includes(s.phase);
-    adjustEl.classList.toggle('visible', showAdjust);
-
-    document.getElementById('op-home-name').textContent=s.homeTeam;
-    document.getElementById('op-away-name').textContent=s.awayTeam;
-    document.getElementById('op-home-score').textContent=s.homeScore;
-    document.getElementById('op-away-score').textContent=s.awayScore;
-    document.getElementById('to-home-name').textContent=s.homeTeam;
-    document.getElementById('to-away-name').textContent=s.awayTeam;
-    document.getElementById('to-home-left').textContent=`TO verfügbar: ${s.homeTimeouts}`;
-    document.getElementById('to-away-left').textContent=`TO verfügbar: ${s.awayTimeouts}`;
-    document.getElementById('btn-to-home').disabled=s.homeTimeouts===0||!!s.timeoutActive;
-    document.getElementById('btn-to-away').disabled=s.awayTimeouts===0||!!s.timeoutActive;
-    const toEl=document.getElementById('to-remaining');
-    if(s.timeoutActive){toEl.style.display='block';toEl.textContent=fmt(s.timeoutRemaining);}else{toEl.style.display='none';}
-    document.getElementById('penalty-list').innerHTML=s.penalties.map(p=>`<li><span>${p.team==='home'?s.homeTeam:s.awayTeam} #${p.player||'?'} – ${Math.floor(p.duration/60)} min</span><span class="pen-time">${fmt(p.remaining)}</span><button class="btn btn-gray btn-xs" onclick="send('REMOVE_PENALTY',{id:${p.id}})">✕</button></li>`).join('');
-    const soCard=document.getElementById('shootout-card');
-    soCard.style.display=s.phase==='shootout'?'block':'none';
-    document.getElementById('so-home-name').textContent=s.homeTeam;
-    document.getElementById('so-away-name').textContent=s.awayTeam;
-    document.getElementById('so-home-score').textContent=s.homeShootout;
-    document.getElementById('so-away-score').textContent=s.awayShootout;
+  function fmt(s) { const c = Math.ceil(s); return `${Math.floor(c/60)}:${String(c%60).padStart(2,'0')}`; }
+  function phaseLabel(s) {
+    const map = { pregame:'Vor dem Spiel', break:'Pause', overtime:'Verlängerung (Sudden Death)', shootout:'Penalty / Shootout', ended:'Spiel beendet' };
+    if (map[s.phase]) return map[s.phase];
+    const p = s.currentPeriod;
+    if (s.gameMode === '2x20') return p === 1 ? '1. Halbzeit' : '2. Halbzeit';
+    return `${p}. Drittel`;
   }
-  const ctx = new(window.AudioContext||window.webkitAudioContext)();
-  function playBuzzer(reason) { const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g);g.connect(ctx.destination); if(reason==='period'){o.frequency.value=220;g.gain.value=0.8;}else if(reason==='timeout'){o.frequency.value=660;g.gain.value=0.5;}else{o.frequency.value=440;g.gain.value=0.4;} o.start(); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(reason==='period'?1.5:0.6)); o.stop(ctx.currentTime+(reason==='period'?1.5:0.6)); }
+  function render(s) {
+    document.getElementById('clock').textContent        = fmt(s.timeRemaining);
+    document.getElementById('phase-label').textContent  = phaseLabel(s);
+
+    const adjustEl  = document.getElementById('time-adjust');
+    const showAdjust = !s.running && !s.timeoutActive && ['period','overtime'].includes(s.phase);
+    adjustEl.classList.toggle('hidden', !showAdjust);
+    adjustEl.classList.toggle('flex',    showAdjust);
+
+    document.getElementById('op-home-name').textContent  = s.homeTeam;
+    document.getElementById('op-away-name').textContent  = s.awayTeam;
+    document.getElementById('op-home-score').textContent = s.homeScore;
+    document.getElementById('op-away-score').textContent = s.awayScore;
+    document.getElementById('to-home-name').textContent  = s.homeTeam;
+    document.getElementById('to-away-name').textContent  = s.awayTeam;
+    document.getElementById('to-home-left').textContent  = `TO verfügbar: ${s.homeTimeouts}`;
+    document.getElementById('to-away-left').textContent  = `TO verfügbar: ${s.awayTimeouts}`;
+    document.getElementById('btn-to-home').disabled = s.homeTimeouts === 0 || !!s.timeoutActive;
+    document.getElementById('btn-to-away').disabled = s.awayTimeouts === 0 || !!s.timeoutActive;
+
+    const toEl = document.getElementById('to-remaining');
+    if (s.timeoutActive) { toEl.classList.remove('hidden'); toEl.textContent = fmt(s.timeoutRemaining); }
+    else { toEl.classList.add('hidden'); }
+
+    document.getElementById('penalty-list').innerHTML = s.penalties.map(p =>
+      `<li class="flex justify-between items-center bg-base-200 rounded px-3 py-1 text-sm">
+         <span>${p.team==='home'?s.homeTeam:s.awayTeam} #${p.player||'?'} – ${Math.floor(p.duration/60)} min</span>
+         <span class="font-bold text-error">${fmt(p.remaining)}</span>
+         <button class="btn btn-ghost btn-xs" onclick="send('REMOVE_PENALTY',{id:${p.id}})">✕</button>
+       </li>`
+    ).join('');
+
+    const soCard = document.getElementById('shootout-card');
+    soCard.classList.toggle('hidden', s.phase !== 'shootout');
+    document.getElementById('so-home-name').textContent  = s.homeTeam;
+    document.getElementById('so-away-name').textContent  = s.awayTeam;
+    document.getElementById('so-home-score').textContent = s.homeShootout;
+    document.getElementById('so-away-score').textContent = s.awayShootout;
+  }
+
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  function playBuzzer(reason) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    if (reason === 'period')        { o.frequency.value = 220; g.gain.value = 0.8; }
+    else if (reason === 'timeout')  { o.frequency.value = 660; g.gain.value = 0.5; }
+    else                            { o.frequency.value = 440; g.gain.value = 0.4; }
+    o.start();
+    const dur = reason === 'period' ? 1.5 : 0.6;
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    o.stop(ctx.currentTime + dur);
+  }
 </script>
 </body>
 </html>

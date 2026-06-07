@@ -1,85 +1,89 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matchuhr – Spielstart</title>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="/style.css">
 <script src="/app.js"></script>
-<style>
-  /* ─── Gamestart-spezifisch ────────────────────────────────────────────────── */
-  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
-  .card { width: 100%; max-width: 680px; margin-bottom: 16px; border-radius: 12px; padding: 20px; }
-  .teams-row { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 10px; align-items: end; }
-  .vs { text-align: center; font-size: 1.2rem; font-weight: bold; color: #aaa; padding-bottom: 8px; }
-  .field-group { display: flex; flex-direction: column; gap: 4px; position: relative; }
-  .actions { display: flex; gap: 10px; max-width: 680px; width: 100%; }
-  .actions .btn { flex: 1; }
-  input[type=text] { padding: 8px 10px; font-size: 0.9rem; }
-</style>
 </head>
-<body>
+<body class="min-h-screen bg-base-300 flex flex-col items-center justify-center p-6">
 
-<div class="status-bar" id="conn-status">Verbinde...</div>
+  <!-- Status Bar -->
+  <div id="conn-status" class="alert alert-info py-1 px-4 text-sm mb-4 w-full max-w-2xl justify-center">Verbinde...</div>
 
-<div class="nav-links">
-  <a href="/manager.html">⚙️ Stammdaten verwalten</a>
-  <a href="/operator.html">🎮 Direkt zum Operator</a>
-</div>
+  <!-- Nav -->
+  <div class="flex gap-6 mb-6 text-sm">
+    <a href="/manager.html" class="link link-primary">⚙️ Stammdaten verwalten</a>
+    <a href="/operator.html" class="link link-primary">🎮 Direkt zum Operator</a>
+  </div>
 
-<h1 class="large">🏒 Spielstart</h1>
-<p class="subtitle">Konfiguriere das Spiel und starte dann die Uhr im Operator.</p>
+  <h1 class="text-3xl font-bold text-primary text-center mb-1">🏒 Spielstart</h1>
+  <p class="text-base-content/60 text-sm text-center mb-8">Konfiguriere das Spiel und starte dann die Uhr im Operator.</p>
 
-<div class="card">
-  <h2>Teams</h2>
-  <div class="teams-row">
-    <div class="field-group" id="home-group">
-      <label>Heim-Team</label>
-      <input type="text" id="cfg-home" placeholder="Teamname oder frei eingeben" autocomplete="off" oninput="onTeamInput('home')">
-      <div class="autocomplete-list" id="home-suggestions" style="display:none"></div>
-    </div>
-    <div class="vs">vs</div>
-    <div class="field-group" id="away-group">
-      <label>Gast-Team</label>
-      <input type="text" id="cfg-away" placeholder="Teamname oder frei eingeben" autocomplete="off" oninput="onTeamInput('away')">
-      <div class="autocomplete-list" id="away-suggestions" style="display:none"></div>
+  <!-- Teams -->
+  <div class="card bg-base-100 shadow-md w-full max-w-2xl mb-4">
+    <div class="card-body">
+      <h2 class="card-title text-xs text-base-content/50 uppercase tracking-widest mb-3">Teams</h2>
+      <div class="grid grid-cols-[1fr_40px_1fr] gap-3 items-end">
+        <div class="relative" id="home-group">
+          <label class="label"><span class="label-text text-xs text-base-content/60">Heim-Team</span></label>
+          <input type="text" id="cfg-home" placeholder="Teamname oder frei eingeben"
+            autocomplete="off" oninput="onTeamInput('home')"
+            class="input input-bordered input-sm w-full">
+          <div class="autocomplete-list" id="home-suggestions" style="display:none"></div>
+        </div>
+        <div class="text-center text-base-content/40 font-bold pb-2">vs</div>
+        <div class="relative" id="away-group">
+          <label class="label"><span class="label-text text-xs text-base-content/60">Gast-Team</span></label>
+          <input type="text" id="cfg-away" placeholder="Teamname oder frei eingeben"
+            autocomplete="off" oninput="onTeamInput('away')"
+            class="input input-bordered input-sm w-full">
+          <div class="autocomplete-list" id="away-suggestions" style="display:none"></div>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="card">
-  <h2>Spielmodus</h2>
-  <div class="form-row-3">
-    <div>
-      <label>Spielmodus</label>
-      <select id="cfg-mode">
-        <option value="1x24">1 × 24 min (E-Junioren)</option>
-        <option value="2x20">2 × 20 min (Halbzeiten)</option>
-        <option value="3x20" selected>3 × 20 min (Dritteln)</option>
-      </select>
-    </div>
-    <div>
-      <label>Pause</label>
-      <select id="cfg-break">
-        <option value="300">5 min</option>
-        <option value="600" selected>10 min</option>
-        <option value="900">15 min</option>
-      </select>
-    </div>
-    <div>
-      <label>Verlängerung</label>
-      <select id="cfg-ot">
-        <option value="300" selected>5 min Sudden Death</option>
-        <option value="600">10 min Sudden Death</option>
-      </select>
+  <!-- Spielmodus -->
+  <div class="card bg-base-100 shadow-md w-full max-w-2xl mb-4">
+    <div class="card-body">
+      <h2 class="card-title text-xs text-base-content/50 uppercase tracking-widest mb-3">Spielmodus</h2>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="label"><span class="label-text text-xs">Spielmodus</span></label>
+          <select id="cfg-mode" class="select select-bordered select-sm w-full">
+            <option value="1x24">1 × 24 min (E-Junioren)</option>
+            <option value="2x20">2 × 20 min (Halbzeiten)</option>
+            <option value="3x20" selected>3 × 20 min (Dritteln)</option>
+          </select>
+        </div>
+        <div>
+          <label class="label"><span class="label-text text-xs">Pause</span></label>
+          <select id="cfg-break" class="select select-bordered select-sm w-full">
+            <option value="300">5 min</option>
+            <option value="600" selected>10 min</option>
+            <option value="900">15 min</option>
+          </select>
+        </div>
+        <div>
+          <label class="label"><span class="label-text text-xs">Verlängerung</span></label>
+          <select id="cfg-ot" class="select select-bordered select-sm w-full">
+            <option value="300" selected>5 min Sudden Death</option>
+            <option value="600">10 min Sudden Death</option>
+          </select>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="actions">
-  <button class="btn btn-green btn-large" onclick="startGame()">▶ Spiel starten</button>
-</div>
-<p class="hint">Du wirst nach dem Start zum Operator weitergeleitet.</p>
+  <!-- Start-Button -->
+  <div class="w-full max-w-2xl">
+    <button onclick="startGame()" class="btn btn-success btn-lg w-full">▶ Spiel starten</button>
+  </div>
+  <p class="text-xs text-base-content/40 mt-3 text-center">Du wirst nach dem Start zum Operator weitergeleitet.</p>
 
 <script>
   const ws = new WebSocket(`ws://${location.host}`);
@@ -101,16 +105,15 @@
     const suggestEl = document.getElementById(`${side}-suggestions`);
     const val = inputEl.value.trim().toLowerCase();
     if (!val || knownTeams.length === 0) { suggestEl.style.display = 'none'; return; }
-    
     const matches = knownTeams.filter(
       t => t.name.toLowerCase().includes(val) ||
-      t.abbreviation.toLowerCase().includes(val) ||
-      t.organization.toLowerCase().includes(val)
-     );
-    
+           t.abbreviation.toLowerCase().includes(val) ||
+           t.organization.toLowerCase().includes(val)
+    );
     if (matches.length === 0) { suggestEl.style.display = 'none'; return; }
     suggestEl.innerHTML = matches.map(
-      t => `<div onclick="selectTeam('${side}','${t.abbreviation.replace(/'/g,"\\'")}')"> ${t.abbreviation}</div>`).join('');
+      t => `<div onclick="selectTeam('${side}','${t.abbreviation.replace(/'/g,"\\'")}')"> ${t.abbreviation}</div>`
+    ).join('');
     suggestEl.style.display = 'block';
   }
 

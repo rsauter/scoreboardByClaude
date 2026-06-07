@@ -1,10 +1,13 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matchuhr – Display</title>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <style>
+  /* Display bleibt bewusst custom – vw/vh-basiert für TV/Beamer */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #000; color: #fff; font-family: 'Segoe UI','Arial Black',sans-serif; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; user-select: none; }
   .phase { font-size: 3vw; color: #888; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 1vh; }
@@ -12,18 +15,20 @@
   .team { text-align: center; flex: 1; }
   .team-name { font-size: 4vw; color: #aaa; font-weight: bold; text-transform: uppercase; margin-bottom: 1vh; }
   .team-score { font-size: 20vw; font-weight: 900; line-height: 1; }
-  .home-score { color: #00d4ff; } .away-score { color: #ff6b6b; }
+  .home-score { color: #00d4ff; }
+  .away-score { color: #ff6b6b; }
   .divider { font-size: 12vw; color: #555; font-weight: 900; }
-  .clock { font-size: 12vw; font-weight: 900; color: #00d4ff; font-variant-numeric: tabular-nums; margin: 2vh 0; text-shadow: 0 0 40px rgba(0,212,255,0.5); }
-  .clock.running { color: #00ff88; text-shadow: 0 0 40px rgba(0,255,136,0.4); }
-  .clock.paused  { color: #fdcb6e; text-shadow: 0 0 40px rgba(253,203,110,0.4); }
+  .clock { font-size: 12vw; font-weight: 900; color: #00d4ff; font-variant-numeric: tabular-nums; margin: 2vh 0; }
+  .clock.running { color: #00ff88; }
+  .clock.paused  { color: #fdcb6e; }
   .clock.ended   { color: #ff6b6b; }
   .clock.break   { color: #a29bfe; }
   .penalties { display: flex; gap: 3vw; margin-top: 2vh; }
   .pen-side { min-width: 20vw; }
   .pen-title { font-size: 1.5vw; color: #888; text-transform: uppercase; margin-bottom: 1vh; text-align: center; }
   .pen-item { background: rgba(214,48,49,0.2); border: 1px solid #d63031; border-radius: 8px; padding: 0.8vh 1.5vw; margin-bottom: 0.8vh; display: flex; justify-content: space-between; font-size: 2.2vw; font-weight: bold; }
-  .pen-item .pen-num { color: #fff; } .pen-item .pen-rem { color: #ff7675; }
+  .pen-item .pen-num { color: #fff; }
+  .pen-item .pen-rem { color: #ff7675; }
   .timeout-banner { position: fixed; top: 0; left: 0; right: 0; background: rgba(253,203,110,0.15); border-bottom: 3px solid #fdcb6e; text-align: center; padding: 2vh; font-size: 4vw; font-weight: bold; color: #fdcb6e; display: none; }
   .shootout-row { display: flex; gap: 6vw; margin-top: 2vh; font-size: 4vw; font-weight: bold; }
   .so-box { text-align: center; color: #fd79a8; }
@@ -43,15 +48,27 @@
 <div class="conn-dot" id="conn-dot">⚫</div>
 <div class="phase" id="phase-label"></div>
 <div class="scoreboard">
-  <div class="team"><div class="team-name" id="home-name">HEIM</div><div class="team-score home-score" id="home-score">0</div></div>
+  <div class="team">
+    <div class="team-name" id="home-name">HEIM</div>
+    <div class="team-score home-score" id="home-score">0</div>
+  </div>
   <div class="divider">:</div>
-  <div class="team"><div class="team-name" id="away-name">GAST</div><div class="team-score away-score" id="away-score">0</div></div>
+  <div class="team">
+    <div class="team-name" id="away-name">GAST</div>
+    <div class="team-score away-score" id="away-score">0</div>
+  </div>
 </div>
 <div class="clock" id="clock">20:00</div>
 <div class="game-status-bullet inactive" id="game-status-bullet"></div>
 <div class="penalties">
-  <div class="pen-side"><div class="pen-title" id="pen-home-title">Strafen Heim</div><div id="pen-home-list"></div></div>
-  <div class="pen-side"><div class="pen-title" id="pen-away-title">Strafen Gast</div><div id="pen-away-list"></div></div>
+  <div class="pen-side">
+    <div class="pen-title" id="pen-home-title">Strafen Heim</div>
+    <div id="pen-home-list"></div>
+  </div>
+  <div class="pen-side">
+    <div class="pen-title" id="pen-away-title">Strafen Gast</div>
+    <div id="pen-away-list"></div>
+  </div>
 </div>
 <div class="shootout-row" id="so-row" style="display:none">
   <div class="so-box"><div class="so-label" id="so-home-lbl">Heim</div><div id="so-home">0</div></div>
@@ -59,48 +76,86 @@
 </div>
 <div class="ended-banner" id="ended-banner" style="display:none">SPIEL BEENDET</div>
 <script>
-  const ws=new WebSocket(`ws://${location.host}`);
-  const dot=document.getElementById('conn-dot');
-  ws.onopen=()=>dot.textContent='🟢';
-  ws.onclose=()=>dot.textContent='🔴';
-  ws.onmessage=e=>{ const m=JSON.parse(e.data); if(m.type==='STATE')render(m.state); if(m.type==='BUZZER')playBuzzer(m.reason); };
-  function fmt(s){ const c=Math.ceil(s); return `${Math.floor(c/60)}:${String(c%60).padStart(2,'0')}`; }
-  function phaseLabel(s){ if(s.phase==='pregame')return'Vor dem Spiel'; if(s.phase==='break')return'Pause'; if(s.phase==='overtime')return'Verlängerung – Sudden Death'; if(s.phase==='shootout')return'Penalty / Shootout'; if(s.phase==='ended')return''; const p=s.currentPeriod; if(s.gameMode==='2x20')return p===1?'1. Halbzeit':'2. Halbzeit'; return `${p}. Drittel`; }
-  function render(s){
-    document.getElementById('home-name').textContent=s.homeTeam.toUpperCase();
-    document.getElementById('away-name').textContent=s.awayTeam.toUpperCase();
-    document.getElementById('home-score').textContent=s.homeScore;
-    document.getElementById('away-score').textContent=s.awayScore;
-    document.getElementById('phase-label').textContent=phaseLabel(s);
-    const cl=document.getElementById('clock');
-    cl.textContent=fmt(s.timeRemaining); cl.className='clock';
-    if(s.phase==='ended')cl.classList.add('ended');
-    else if(s.phase==='break')cl.classList.add('break');
-    else if(s.running)cl.classList.add('running');
-    else cl.classList.add('paused');
-    const toB=document.getElementById('to-banner');
-    if(s.timeoutActive){toB.style.display='block';const n=s.timeoutActive==='home'?s.homeTeam:s.awayTeam;toB.textContent=`⏱ TIMEOUT ${n.toUpperCase()} – ${fmt(s.timeoutRemaining)}`;}else{toB.style.display='none';}
-    document.getElementById('pen-home-title').textContent=`Strafen ${s.homeTeam}`;
-    document.getElementById('pen-away-title').textContent=`Strafen ${s.awayTeam}`;
-    document.getElementById('pen-home-list').innerHTML=s.penalties.filter(p=>p.team==='home').map(p=>`<div class="pen-item"><span class="pen-num">#${p.player||'?'}</span><span class="pen-rem">${fmt(p.remaining)}</span></div>`).join('');
-    document.getElementById('pen-away-list').innerHTML=s.penalties.filter(p=>p.team==='away').map(p=>`<div class="pen-item"><span class="pen-num">#${p.player||'?'}</span><span class="pen-rem">${fmt(p.remaining)}</span></div>`).join('');
-    const soRow=document.getElementById('so-row');
-    soRow.style.display=s.phase==='shootout'?'flex':'none';
-    document.getElementById('so-home-lbl').textContent=s.homeTeam;
-    document.getElementById('so-away-lbl').textContent=s.awayTeam;
-    document.getElementById('so-home').textContent=s.homeShootout;
-    document.getElementById('so-away').textContent=s.awayShootout;
-    document.getElementById('ended-banner').style.display=s.phase==='ended'?'block':'none';
-    // Game status bullet
-    const bullet=document.getElementById('game-status-bullet');
-    bullet.className='game-status-bullet';
-    if(s.phase==='ended'||s.phase==='pregame')bullet.classList.add('inactive');
-    else if(s.timeoutActive)bullet.classList.add('timeout');
-    else if(s.running)bullet.classList.add('running');
-    else bullet.classList.add('stopped');
+  const ws  = new WebSocket(`ws://${location.host}`);
+  const dot = document.getElementById('conn-dot');
+  ws.onopen    = () => dot.textContent = '🟢';
+  ws.onclose   = () => dot.textContent = '🔴';
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.type === 'STATE') render(m.state); if (m.type === 'BUZZER') playBuzzer(m.reason); };
+
+  function fmt(s) { const c = Math.ceil(s); return `${Math.floor(c/60)}:${String(c%60).padStart(2,'0')}`; }
+  function phaseLabel(s) {
+    if (s.phase === 'pregame')  return 'Vor dem Spiel';
+    if (s.phase === 'break')    return 'Pause';
+    if (s.phase === 'overtime') return 'Verlängerung – Sudden Death';
+    if (s.phase === 'shootout') return 'Penalty / Shootout';
+    if (s.phase === 'ended')    return '';
+    const p = s.currentPeriod;
+    if (s.gameMode === '2x20') return p === 1 ? '1. Halbzeit' : '2. Halbzeit';
+    return `${p}. Drittel`;
   }
-  const ctx=new(window.AudioContext||window.webkitAudioContext)();
-  function playBuzzer(reason){ const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g);g.connect(ctx.destination); if(reason==='period'){o.frequency.value=220;g.gain.value=1.0;}else if(reason==='timeout'){o.frequency.value=660;g.gain.value=0.6;}else{o.frequency.value=440;g.gain.value=0.5;} o.start(); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(reason==='period'?2:0.8)); o.stop(ctx.currentTime+(reason==='period'?2:0.8)); }
+
+  function render(s) {
+    document.getElementById('home-name').textContent  = s.homeTeam.toUpperCase();
+    document.getElementById('away-name').textContent  = s.awayTeam.toUpperCase();
+    document.getElementById('home-score').textContent = s.homeScore;
+    document.getElementById('away-score').textContent = s.awayScore;
+    document.getElementById('phase-label').textContent = phaseLabel(s);
+
+    const cl = document.getElementById('clock');
+    cl.textContent = fmt(s.timeRemaining);
+    cl.className = 'clock';
+    if      (s.phase === 'ended') cl.classList.add('ended');
+    else if (s.phase === 'break') cl.classList.add('break');
+    else if (s.running)           cl.classList.add('running');
+    else                          cl.classList.add('paused');
+
+    const toB = document.getElementById('to-banner');
+    if (s.timeoutActive) {
+      toB.style.display = 'block';
+      const n = s.timeoutActive === 'home' ? s.homeTeam : s.awayTeam;
+      toB.textContent = `⏱ TIMEOUT ${n.toUpperCase()} – ${fmt(s.timeoutRemaining)}`;
+    } else { toB.style.display = 'none'; }
+
+    document.getElementById('pen-home-title').textContent = `Strafen ${s.homeTeam}`;
+    document.getElementById('pen-away-title').textContent = `Strafen ${s.awayTeam}`;
+    document.getElementById('pen-home-list').innerHTML = s.penalties
+      .filter(p => p.team === 'home')
+      .map(p => `<div class="pen-item"><span class="pen-num">#${p.player||'?'}</span><span class="pen-rem">${fmt(p.remaining)}</span></div>`)
+      .join('');
+    document.getElementById('pen-away-list').innerHTML = s.penalties
+      .filter(p => p.team === 'away')
+      .map(p => `<div class="pen-item"><span class="pen-num">#${p.player||'?'}</span><span class="pen-rem">${fmt(p.remaining)}</span></div>`)
+      .join('');
+
+    const soRow = document.getElementById('so-row');
+    soRow.style.display = s.phase === 'shootout' ? 'flex' : 'none';
+    document.getElementById('so-home-lbl').textContent = s.homeTeam;
+    document.getElementById('so-away-lbl').textContent = s.awayTeam;
+    document.getElementById('so-home').textContent = s.homeShootout;
+    document.getElementById('so-away').textContent = s.awayShootout;
+
+    document.getElementById('ended-banner').style.display = s.phase === 'ended' ? 'block' : 'none';
+
+    const bullet = document.getElementById('game-status-bullet');
+    bullet.className = 'game-status-bullet';
+    if      (s.phase === 'ended' || s.phase === 'pregame') bullet.classList.add('inactive');
+    else if (s.timeoutActive)                              bullet.classList.add('timeout');
+    else if (s.running)                                    bullet.classList.add('running');
+    else                                                   bullet.classList.add('stopped');
+  }
+
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  function playBuzzer(reason) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    if (reason === 'period')       { o.frequency.value = 220; g.gain.value = 1.0; }
+    else if (reason === 'timeout') { o.frequency.value = 660; g.gain.value = 0.6; }
+    else                           { o.frequency.value = 440; g.gain.value = 0.5; }
+    o.start();
+    const dur = reason === 'period' ? 2 : 0.8;
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    o.stop(ctx.currentTime + dur);
+  }
 </script>
 </body>
 </html>
