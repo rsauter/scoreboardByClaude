@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matchuhr – Operator</title>
+  <script type="module" crossorigin src="/assets/operator-Dx4sQW_I.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/shared-B3KpYbbB.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-BgWjFTit.css">
+</head>
+<body class="bg-base-300 p-4">
+
+  <h1 class="text-2xl font-bold text-primary text-center mb-3">⏱ Matchuhr – Operator</h1>
+  <div id="conn-status" class="alert alert-info py-1 px-4 text-sm mb-4 justify-center">Verbinde...</div>
+
+  <div class="grid grid-cols-2 gap-3">
+
+    <!-- Spielzeit -->
+    <div class="card bg-base-100 shadow col-span-2">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-2">Spielzeit</h2>
+        <div class="clock-display text-5xl font-bold text-primary text-center" id="clock">20:00</div>
+        <div class="text-center text-sm text-base-content/50 my-1" id="phase-label">–</div>
+
+        <!-- Zeitkorrektur -->
+        <div class="hidden items-center justify-center gap-3 my-1" id="time-adjust">
+          <span class="text-xs text-base-content/40">Zeitkorrektur</span>
+          <button onclick="adjustTime(-1)" title="−1 Sekunde"
+            class="btn-adjust btn btn-sm btn-ghost border border-base-content/20 text-primary">−</button>
+          <button onclick="adjustTime(+1)" title="+1 Sekunde"
+            class="btn-adjust btn btn-sm btn-ghost border border-base-content/20 text-primary">+</button>
+        </div>
+
+        <div class="flex flex-wrap gap-2 justify-center mt-2">
+          <button onclick="send('START')"      class="btn btn-success btn-sm">▶ Start</button>
+          <button onclick="send('STOP')"       class="btn btn-error btn-sm">⏸ Stop</button>
+          <button onclick="send('NEXT_PHASE')" class="btn btn-warning btn-sm">⏭ Nächste Phase</button>
+          <button onclick="confirmReset()"     class="btn btn-ghost btn-sm">🔄 Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spielstand -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Spielstand</h2>
+        <div class="flex items-center justify-around">
+          <div class="text-center">
+            <div class="text-sm text-base-content/50" id="op-home-name">Heim</div>
+            <div class="text-5xl font-bold" id="op-home-score">0</div>
+            <div class="flex gap-2 mt-1">
+              <button onclick="send('GOAL_HOME')" class="btn btn-success btn-xs">+1</button>
+              <button onclick="send('UNDO_HOME')" class="btn btn-ghost btn-xs">−1</button>
+            </div>
+          </div>
+          <div class="text-2xl text-base-content/30">:</div>
+          <div class="text-center">
+            <div class="text-sm text-base-content/50" id="op-away-name">Gast</div>
+            <div class="text-5xl font-bold" id="op-away-score">0</div>
+            <div class="flex gap-2 mt-1">
+              <button onclick="send('GOAL_AWAY')" class="btn btn-success btn-xs">+1</button>
+              <button onclick="send('UNDO_AWAY')" class="btn btn-ghost btn-xs">−1</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeout -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Timeout (30 Sek.)</h2>
+        <div class="flex items-center justify-around">
+          <div class="text-center">
+            <div class="text-sm mb-1" id="to-home-name">Heim</div>
+            <button id="btn-to-home" onclick="send('TIMEOUT',{team:'home'})"
+              class="btn btn-warning btn-sm">TO Heim</button>
+            <div class="text-xs text-base-content/40 mt-1" id="to-home-left"></div>
+          </div>
+          <div class="text-3xl font-bold text-warning hidden" id="to-remaining">0:30</div>
+          <div class="text-center">
+            <div class="text-sm mb-1" id="to-away-name">Gast</div>
+            <button id="btn-to-away" onclick="send('TIMEOUT',{team:'away'})"
+              class="btn btn-warning btn-sm">TO Gast</button>
+            <div class="text-xs text-base-content/40 mt-1" id="to-away-left"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strafen -->
+    <div class="card bg-base-100 shadow col-span-2">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Strafen</h2>
+        <div class="grid grid-cols-3 gap-2 mb-3">
+          <div>
+            <label class="label py-0"><span class="label-text text-xs">Team</span></label>
+            <select id="pen-team" class="select select-bordered select-sm w-full">
+              <option value="home">Heim</option>
+              <option value="away">Gast</option>
+            </select>
+          </div>
+          <div>
+            <label class="label py-0"><span class="label-text text-xs">Spieler #</span></label>
+            <input type="text" id="pen-player" placeholder="z.B. 7"
+              class="input input-bordered input-sm w-full">
+          </div>
+          <div>
+            <label class="label py-0"><span class="label-text text-xs">Dauer</span></label>
+            <select id="pen-duration" class="select select-bordered select-sm w-full">
+              <option value="2">2 min</option>
+              <option value="5">5 min</option>
+              <option value="10">10 min</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="addPenalty()" class="btn btn-error btn-sm">➕ Strafe erfassen</button>
+        <ul id="penalty-list" class="mt-3 space-y-1 list-none"></ul>
+      </div>
+    </div>
+
+    <!-- Shootout -->
+    <div class="card bg-base-100 shadow col-span-2 hidden" id="shootout-card">
+      <div class="card-body py-3 px-4">
+        <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Penalty / Shootout</h2>
+        <div class="grid grid-cols-2 gap-4 text-center">
+          <div>
+            <div class="text-sm mb-1" id="so-home-name">Heim</div>
+            <div class="text-4xl font-bold text-pink-400" id="so-home-score">0</div>
+            <button onclick="send('SO_HOME')" class="btn btn-success btn-sm mt-2">Tor ✓</button>
+          </div>
+          <div>
+            <div class="text-sm mb-1" id="so-away-name">Gast</div>
+            <div class="text-4xl font-bold text-pink-400" id="so-away-score">0</div>
+            <button onclick="send('SO_AWAY')" class="btn btn-success btn-sm mt-2">Tor ✓</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+</body>
+</html>

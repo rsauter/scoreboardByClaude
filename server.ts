@@ -105,7 +105,7 @@ async function saveStateToDb(): Promise<void> {
         currentPeriod: String(state.currentPeriod),
         timeRemaining: state.timeRemaining,
         running:       false,
-        penalties:     state.penalties,
+        penalties:     state.penalties as any,
       }
     });
   } catch (e: any) {
@@ -139,7 +139,7 @@ async function loadLastMatch(): Promise<void> {
       currentPeriod:  isNaN(Number(match.currentPeriod)) ? (match.currentPeriod as GameState['currentPeriod']) : parseInt(match.currentPeriod),
       timeRemaining:  match.timeRemaining,
       running:        false,
-      penalties:      Array.isArray(match.penalties) ? match.penalties as Penalty[] : [],
+      penalties: Array.isArray(match.penalties) ? match.penalties as unknown as Penalty[] : [],
       periodDuration: match.gameMode === '1x24' ? 24 * 60 : 20 * 60,
     };
   } catch (e: any) {
