@@ -43,6 +43,54 @@ Ein webbasiertes Echtzeit-Scoreboard für Unihockey, entwickelt als Open-Source-
 - **State:** In-Memory (Echtzeit) + PostgreSQL (Persistenz / Crash Recovery)
 - **Audio:** Web Audio API (kein externes Soundfile nötig)
 
+## Technologie-Entscheide
+
+### Vite + TypeScript (geplante Migration)
+
+Das Projekt wird schrittweise auf **Vite** (Build-Tool) und **TypeScript** migriert.
+
+**Warum Vite?**
+- Hot Module Replacement (HMR) im Dev-Betrieb — Änderungen sofort im Browser, kein manueller Reload
+- Echter ES-Modul-Import statt globaler `<script>`-Tags → saubere Abhängigkeiten zwischen Dateien
+- Tailwind/DaisyUI wird lokal gebündelt statt via CDN geladen → zuverlässig auch ohne Internet in der Sporthalle
+- `vite build` produziert optimierte statische Dateien in `/dist`, die Express weiterhin served
+- Minimaler Konfigurations-Overhead (kein Webpack)
+
+Das Backend (Express / WebSocket / Prisma) bleibt vollständig unverändert. Vite übernimmt ausschliesslich den Frontend-Dev-Workflow.
+
+**Warum TypeScript?**
+- Das zentrale `state`-Objekt (`phase`, `penalties`, `timeRemaining` etc.) bekommt ein Interface → Tippfehler werden zur Compile-Zeit erkannt, nicht erst im Browser
+- WebSocket-Nachrichten können mit Union Types modelliert werden → kein implizites `any` mehr
+- Prisma generiert bereits TypeScript-Types aus dem Schema — diese können nun vollständig genutzt werden
+- Deutlich besseres Autocomplete und Inline-Fehlerhinweise in VS Code
+- Schrittweise Migration möglich: Datei für Datei von `.js` → `.ts`, kein Big-Bang-Rewrite
+
+**Angestrebte Verzeichnisstruktur nach Migration:**
+
+```
+/src
+  /client             ← Vite-Einstiegspunkte (bisher inline JS im HTML)
+    gamestart.ts
+    operator.ts
+    manager.ts
+    display.ts        ← bleibt CSS-framework-frei, nur TS statt JS
+  /shared
+    types.ts          ← GameState, WS-Message-Types (geteilt Client + Server)
+/server
+  server.ts
+  app.ts
+```
+
+**Build-Flow:**
+
+```bash
+npm run dev     # Vite Dev-Server (HMR) + tsx für Backend
+npm run build   # vite build → /dist (von Express als static served)
+npm start       # node dist/server.js
+```
+
+> **Hinweis `display.html`:** Diese Seite bleibt bewusst frei von CSS-Frameworks. Die `vw`/`vh`-basierte Vollbild-Skalierung für TV/Beamer ist inkompatibel mit Utility-CSS-Frameworks (z.B. Tailwind). Diese Entscheidung ist architektonisch gesetzt und wird nicht rückgängig gemacht.
+
 ## Seiten
 
 | URL | Beschreibung |
@@ -66,11 +114,7 @@ cd scoreBoardByClaude
 
 **PostgreSQL via Docker starten:**
 ```bash
-docker run -d --name scoreboard-db \
-  -e POSTGRES_PASSWORD=geheim \
-  -e POSTGRES_DB=scoreboard \
-  -p 5432:5432 \
-  postgres:16
+docker run -d --name scoreboard-db -e POSTGRES_PASSWORD=geheim -e POSTGRES_DB=scoreboard -p 5432:5432  postgres:16
 ```
 
 **Umgebungsvariablen konfigurieren:**

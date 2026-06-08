@@ -4,10 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matchuhr – Spielstart</title>
-<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="/style.css">
-<script src="/app.js"></script>
+<link rel="stylesheet" href="./style.css">
+<script type="module" src="./gamestart.ts"></script>
 </head>
 <body class="min-h-screen bg-base-300 flex flex-col items-center justify-center p-6">
 
@@ -16,12 +14,24 @@
 
   <!-- Nav -->
   <div class="flex gap-6 mb-6 text-sm">
-    <a href="/manager.html" class="link link-primary">⚙️ Stammdaten verwalten</a>
-    <a href="/operator.html" class="link link-primary">🎮 Direkt zum Operator</a>
+    <a href="/manager.html" class="link link-primary">Stammdaten verwalten</a>
+    <a href="/operator.html" class="link link-primary">Direkt zum Operator</a>
   </div>
 
-  <h1 class="text-3xl font-bold text-primary text-center mb-1">🏒 Spielstart</h1>
+  <h1 class="text-3xl font-bold text-primary text-center mb-1">Spielstart</h1>
   <p class="text-base-content/60 text-sm text-center mb-8">Konfiguriere das Spiel und starte dann die Uhr im Operator.</p>
+
+  <!-- Geplantes Match -->
+  <div class="card bg-base-100 shadow-md w-full max-w-2xl mb-4">
+    <div class="card-body">
+      <h2 class="card-title text-xs text-base-content/50 uppercase tracking-widest mb-3">Geplantes Match</h2>
+      <label class="label"><span class="label-text text-xs text-base-content/60">Auswahl</span></label>
+      <select id="cfg-match" class="select select-bordered select-sm w-full" onchange="onPlannedMatchChange()">
+        <option value="">Neues Match (Recovery-Datensatz)</option>
+      </select>
+      <p class="text-xs text-base-content/50 mt-2">Geplante Matches werden im Manager unter "Matches" verwaltet.</p>
+    </div>
+  </div>
 
   <!-- Teams -->
   <div class="card bg-base-100 shadow-md w-full max-w-2xl mb-4">
@@ -84,60 +94,5 @@
     <button onclick="startGame()" class="btn btn-success btn-lg w-full">▶ Spiel starten</button>
   </div>
   <p class="text-xs text-base-content/40 mt-3 text-center">Du wirst nach dem Start zum Operator weitergeleitet.</p>
-
-<script>
-  const ws = new WebSocket(`ws://${location.host}`);
-  let knownTeams = [];
-
-  ws.onopen  = () => updateStatusBar('🟢 Verbunden');
-  ws.onclose = () => updateStatusBar('🔴 Getrennt – Seite neu laden');
-
-  async function loadTeams() {
-    try {
-      const res = await fetch('/api/teams');
-      if (res.ok) knownTeams = await res.json();
-    } catch(e) {}
-  }
-  loadTeams();
-
-  function onTeamInput(side) {
-    const inputEl   = document.getElementById(`cfg-${side}`);
-    const suggestEl = document.getElementById(`${side}-suggestions`);
-    const val = inputEl.value.trim().toLowerCase();
-    if (!val || knownTeams.length === 0) { suggestEl.style.display = 'none'; return; }
-    const matches = knownTeams.filter(
-      t => t.name.toLowerCase().includes(val) ||
-           t.abbreviation.toLowerCase().includes(val) ||
-           t.organization.toLowerCase().includes(val)
-    );
-    if (matches.length === 0) { suggestEl.style.display = 'none'; return; }
-    suggestEl.innerHTML = matches.map(
-      t => `<div onclick="selectTeam('${side}','${t.abbreviation.replace(/'/g,"\\'")}')"> ${t.abbreviation}</div>`
-    ).join('');
-    suggestEl.style.display = 'block';
-  }
-
-  function selectTeam(side, name) {
-    document.getElementById(`cfg-${side}`).value = name;
-    document.getElementById(`${side}-suggestions`).style.display = 'none';
-  }
-
-  document.addEventListener('click', e => {
-    ['home','away'].forEach(side => {
-      const group = document.getElementById(`${side}-group`);
-      if (!group.contains(e.target)) document.getElementById(`${side}-suggestions`).style.display = 'none';
-    });
-  });
-
-  function startGame() {
-    const homeTeam      = document.getElementById('cfg-home').value.trim() || 'Heim';
-    const awayTeam      = document.getElementById('cfg-away').value.trim() || 'Gast';
-    const gameMode      = document.getElementById('cfg-mode').value;
-    const breakDuration = parseInt(document.getElementById('cfg-break').value);
-    const otDuration    = parseInt(document.getElementById('cfg-ot').value);
-    ws.send(JSON.stringify({ cmd:'SET_CONFIG', homeTeam, awayTeam, gameMode, breakDuration, otDuration }));
-    setTimeout(() => { window.location.href = '/operator.html'; }, 200);
-  }
-</script>
 </body>
 </html>

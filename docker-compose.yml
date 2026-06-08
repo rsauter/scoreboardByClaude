@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    container_name: scoreboard-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: geheim
+      POSTGRES_DB: scoreboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - scoreboard-data:/var/lib/postgresql/data
+    networks:
+      - scoreboard-net
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: always
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - scoreboard-net
+
+volumes:
+  scoreboard-data:
+    name: scoreboard-data
+  portainer_data:
+    name: portainer_data
+
+networks:
+  scoreboard-net:
+    driver: bridge
