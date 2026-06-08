@@ -14,12 +14,24 @@
 
   <!-- Nav -->
   <div class="flex gap-6 mb-6 text-sm">
-    <a href="/manager.html" class="link link-primary">⚙️ Stammdaten verwalten</a>
-    <a href="/operator.html" class="link link-primary">🎮 Direkt zum Operator</a>
+    <a href="/manager.html" class="link link-primary">Stammdaten verwalten</a>
+    <a href="/operator.html" class="link link-primary">Direkt zum Operator</a>
   </div>
 
-  <h1 class="text-3xl font-bold text-primary text-center mb-1">🏒 Spielstart</h1>
+  <h1 class="text-3xl font-bold text-primary text-center mb-1">Spielstart</h1>
   <p class="text-base-content/60 text-sm text-center mb-8">Konfiguriere das Spiel und starte dann die Uhr im Operator.</p>
+
+  <!-- Geplantes Match -->
+  <div class="card bg-base-100 shadow-md w-full max-w-2xl mb-4">
+    <div class="card-body">
+      <h2 class="card-title text-xs text-base-content/50 uppercase tracking-widest mb-3">Geplantes Match</h2>
+      <label class="label"><span class="label-text text-xs text-base-content/60">Auswahl</span></label>
+      <select id="cfg-match" class="select select-bordered select-sm w-full" onchange="onPlannedMatchChange()">
+        <option value="">Neues Match (Recovery-Datensatz)</option>
+      </select>
+      <p class="text-xs text-base-content/50 mt-2">Geplante Matches werden im Manager unter "Matches" verwaltet.</p>
+    </div>
+  </div>
 
   <!-- Teams -->
   <div class="card bg-base-100 shadow-md w-full max-w-2xl mb-4">

@@ -46,7 +46,7 @@ export type ServerMessage =
 
 // WebSocket Commands Client → Server
 export type ClientCommand =
-  | { cmd: 'SET_CONFIG'; homeTeam: string; awayTeam: string; gameMode: GameMode; breakDuration: number; otDuration: number }
+  | { cmd: 'SET_CONFIG'; homeTeam: string; awayTeam: string; gameMode: GameMode; breakDuration: number; otDuration: number; matchId?: number }
   | { cmd: 'START' }
   | { cmd: 'STOP' }
   | { cmd: 'NEXT_PHASE' }
