@@ -2,9 +2,13 @@
   "name": "unihockey-matchuhr",
   "version": "1.0.0",
   "description": "Unihockey Spieluhr MVP",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node server.js",
+    "dev:client": "vite",
+    "dev:server": "npx tsx watch server.ts",
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "build": "vite build && tsc --project tsconfig.server.json",
+    "start": "node dist/server.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -15,5 +19,17 @@
     "pg": "^8.21.0",
     "prisma": "^7.8.0",
     "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.2",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^10.0.3",
+    "daisyui": "^5.5.23",
+    "tailwindcss": "^4.3.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
   }
 }

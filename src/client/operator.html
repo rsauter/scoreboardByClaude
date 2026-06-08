@@ -4,10 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matchuhr – Operator</title>
-<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="/style.css">
-<script src="/app.js"></script>
+<link rel="stylesheet" href="./style.css">
+<script type="module" src="./operator.ts"></script>
 </head>
 <body class="bg-base-300 p-4">
 
@@ -140,93 +138,5 @@
     </div>
 
   </div><!-- /grid -->
-
-<script>
-  const ws = new WebSocket(`ws://${location.host}`);
-  let st = {};
-  ws.onopen    = () => document.getElementById('conn-status').textContent = '🟢 Verbunden';
-  ws.onclose   = () => document.getElementById('conn-status').textContent = '🔴 Getrennt – Seite neu laden';
-  ws.onmessage = e => {
-    const m = JSON.parse(e.data);
-    if (m.type === 'STATE') { st = m.state; render(st); }
-    if (m.type === 'BUZZER') playBuzzer(m.reason);
-  };
-  function send(cmd, extra={}) { ws.send(JSON.stringify({cmd,...extra})); }
-  function adjustTime(delta) { send('ADJUST_TIME', { delta }); }
-  function addPenalty() {
-    send('ADD_PENALTY', {
-      team:     document.getElementById('pen-team').value,
-      player:   document.getElementById('pen-player').value,
-      duration: parseInt(document.getElementById('pen-duration').value)
-    });
-    document.getElementById('pen-player').value = '';
-  }
-  function confirmReset() {
-    if (confirm('Spiel wirklich zurücksetzen? Du wirst zu Spielstart weitergeleitet.')) {
-      send('RESET');
-      setTimeout(() => { window.location.href = '/gamestart.html'; }, 200);
-    }
-  }
-  function fmt(s) { const c = Math.ceil(s); return `${Math.floor(c/60)}:${String(c%60).padStart(2,'0')}`; }
-  function phaseLabel(s) {
-    const map = { pregame:'Vor dem Spiel', break:'Pause', overtime:'Verlängerung (Sudden Death)', shootout:'Penalty / Shootout', ended:'Spiel beendet' };
-    if (map[s.phase]) return map[s.phase];
-    const p = s.currentPeriod;
-    if (s.gameMode === '2x20') return p === 1 ? '1. Halbzeit' : '2. Halbzeit';
-    return `${p}. Drittel`;
-  }
-  function render(s) {
-    document.getElementById('clock').textContent        = fmt(s.timeRemaining);
-    document.getElementById('phase-label').textContent  = phaseLabel(s);
-
-    const adjustEl  = document.getElementById('time-adjust');
-    const showAdjust = !s.running && !s.timeoutActive && ['period','overtime'].includes(s.phase);
-    adjustEl.classList.toggle('hidden', !showAdjust);
-    adjustEl.classList.toggle('flex',    showAdjust);
-
-    document.getElementById('op-home-name').textContent  = s.homeTeam;
-    document.getElementById('op-away-name').textContent  = s.awayTeam;
-    document.getElementById('op-home-score').textContent = s.homeScore;
-    document.getElementById('op-away-score').textContent = s.awayScore;
-    document.getElementById('to-home-name').textContent  = s.homeTeam;
-    document.getElementById('to-away-name').textContent  = s.awayTeam;
-    document.getElementById('to-home-left').textContent  = `TO verfügbar: ${s.homeTimeouts}`;
-    document.getElementById('to-away-left').textContent  = `TO verfügbar: ${s.awayTimeouts}`;
-    document.getElementById('btn-to-home').disabled = s.homeTimeouts === 0 || !!s.timeoutActive;
-    document.getElementById('btn-to-away').disabled = s.awayTimeouts === 0 || !!s.timeoutActive;
-
-    const toEl = document.getElementById('to-remaining');
-    if (s.timeoutActive) { toEl.classList.remove('hidden'); toEl.textContent = fmt(s.timeoutRemaining); }
-    else { toEl.classList.add('hidden'); }
-
-    document.getElementById('penalty-list').innerHTML = s.penalties.map(p =>
-      `<li class="flex justify-between items-center bg-base-200 rounded px-3 py-1 text-sm">
-         <span>${p.team==='home'?s.homeTeam:s.awayTeam} #${p.player||'?'} – ${Math.floor(p.duration/60)} min</span>
-         <span class="font-bold text-error">${fmt(p.remaining)}</span>
-         <button class="btn btn-ghost btn-xs" onclick="send('REMOVE_PENALTY',{id:${p.id}})">✕</button>
-       </li>`
-    ).join('');
-
-    const soCard = document.getElementById('shootout-card');
-    soCard.classList.toggle('hidden', s.phase !== 'shootout');
-    document.getElementById('so-home-name').textContent  = s.homeTeam;
-    document.getElementById('so-away-name').textContent  = s.awayTeam;
-    document.getElementById('so-home-score').textContent = s.homeShootout;
-    document.getElementById('so-away-score').textContent = s.awayShootout;
-  }
-
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  function playBuzzer(reason) {
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    if (reason === 'period')        { o.frequency.value = 220; g.gain.value = 0.8; }
-    else if (reason === 'timeout')  { o.frequency.value = 660; g.gain.value = 0.5; }
-    else                            { o.frequency.value = 440; g.gain.value = 0.4; }
-    o.start();
-    const dur = reason === 'period' ? 1.5 : 0.6;
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-    o.stop(ctx.currentTime + dur);
-  }
-</script>
 </body>
 </html>
