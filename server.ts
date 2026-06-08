@@ -19,6 +19,53 @@ const wss    = new WebSocketServer({ server });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+// ─── Dashboard API (Match List with Status) ──────────────────────────────────
+app.get('/api/dashboard', async (_req, res) => {
+  try {
+    // Hole alle Matches, die nicht beendet sind (planned, pregame, period, etc.)
+    const matches = await prisma.match.findMany({
+      where: { phase: { not: 'ended' } },
+      orderBy: { scheduledAt: 'desc' }, // Neueste zuerst
+      include: { homeTeam: true, awayTeam: true }
+    });
+
+    const now = Date.now();
+    const THRESHOLD_CRASH = 15000; // 15 Sekunden ohne Update = Crash/Verbindung weg
+    const THRESHOLD_WARN = 5000;   // 5 Sekunden = Warnung
+
+    const dashboardData = matches.map(match => {
+      // Berechne Zeit seit letztem Datenbank-Update
+      const lastUpdate = match.savedAt ? match.savedAt.getTime() : 0;
+      const diff = now - lastUpdate;
+      
+      let status = 'ok'; // Grün
+      if (match.phase === 'planned') {
+        status = 'planned'; // Blau/Grau (noch nicht gestartet)
+      } else if (diff > THRESHOLD_CRASH) {
+        status = 'crash';   // Rot
+      } else if (diff > THRESHOLD_WARN) {
+        status = 'warn';    // Gelb
+      }
+
+      return {
+        id: match.id,
+        homeTeam: match.homeTeam.name,
+        awayTeam: match.awayTeam.name,
+        homeScore: match.scoreHome,
+        awayScore: match.scoreAway,
+        phase: match.phase,
+        scheduledAt: match.scheduledAt,
+        status: status,
+        lastUpdate: lastUpdate
+      };
+    });
+
+    res.json(dashboardData);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Teams API ────────────────────────────────────────────────────────────────
 app.get('/api/teams', async (_req, res) => {
   try {
