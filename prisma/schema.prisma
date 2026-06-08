@@ -51,6 +51,7 @@ model Match {
   timeRemaining Float    @default(1200)
   running       Boolean  @default(false)
   penalties     Json     @default("[]")
+  scheduledAt   DateTime @default(now())
   startedAt     DateTime?
   savedAt       DateTime @updatedAt
   playedAt      DateTime @default(now())

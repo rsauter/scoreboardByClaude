@@ -114,11 +114,7 @@ cd scoreBoardByClaude
 
 **PostgreSQL via Docker starten:**
 ```bash
-docker run -d --name scoreboard-db \
-  -e POSTGRES_PASSWORD=geheim \
-  -e POSTGRES_DB=scoreboard \
-  -p 5432:5432 \
-  postgres:16
+docker run -d --name scoreboard-db -e POSTGRES_PASSWORD=geheim -e POSTGRES_DB=scoreboard -p 5432:5432  postgres:16
 ```
 
 **Umgebungsvariablen konfigurieren:**

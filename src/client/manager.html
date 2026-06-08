@@ -18,30 +18,59 @@
 
   <div class="flex items-center justify-between mb-5">
     <h1 class="text-2xl font-bold text-primary">⚙️ Stammdaten</h1>
-    <button onclick="openModal()" class="btn btn-primary btn-sm">+ Neu</button>
   </div>
 
   <!-- Tabs -->
   <div role="tablist" class="tabs tabs-bordered mb-4">
     <button role="tab" id="tab-teams-btn" class="tab tab-active" onclick="showTab('teams', this)">Teams</button>
+    <button role="tab" id="tab-matches-btn" class="tab" onclick="showTab('matches', this)">Matches</button>
     <button role="tab" class="tab tab-disabled" disabled title="Kommt später">Spieler</button>
   </div>
 
   <!-- Teams-Tabelle -->
-  <div id="tab-teams" class="card bg-base-100 shadow overflow-x-auto">
-    <table class="table table-sm">
-      <thead>
-        <tr class="text-xs text-base-content/50 uppercase tracking-wider">
-          <th>Name</th>
-          <th>Kürzel</th>
-          <th>Organisation</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="team-table-body">
-        <tr><td colspan="4" class="text-center py-10 text-base-content/30">Noch keine Teams erfasst.</td></tr>
-      </tbody>
-    </table>
+  <div id="tab-teams" class="tab-panel">
+    <div class="flex items-center justify-end mb-3">
+      <button onclick="openTeamModal()" class="btn btn-primary btn-sm">+ Team</button>
+    </div>
+    <div class="card bg-base-100 shadow overflow-x-auto">
+      <table class="table table-sm">
+        <thead>
+          <tr class="text-xs text-base-content/50 uppercase tracking-wider">
+            <th>Name</th>
+            <th>Kürzel</th>
+            <th>Organisation</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="team-table-body">
+          <tr><td colspan="4" class="text-center py-10 text-base-content/30">Noch keine Teams erfasst.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Matches-Tabelle -->
+  <div id="tab-matches" class="tab-panel hidden">
+    <div class="flex items-center justify-end mb-3">
+      <button onclick="openMatchModal()" class="btn btn-primary btn-sm">+ Match</button>
+    </div>
+    <div class="card bg-base-100 shadow overflow-x-auto">
+      <table class="table table-sm">
+        <thead>
+          <tr class="text-xs text-base-content/50 uppercase tracking-wider">
+            <th>Heim</th>
+            <th>Gast</th>
+            <th>Modus</th>
+            <th>Geplant</th>
+            <th>Start effektiv</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="match-table-body">
+          <tr><td colspan="6" class="text-center py-10 text-base-content/30">Noch keine geplanten Matches erfasst.</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- DaisyUI Modal -->
@@ -78,8 +107,51 @@
       <div id="modal-error" class="text-error text-sm mt-2 hidden">Name ist Pflichtfeld.</div>
 
       <div class="modal-action">
-        <button class="btn btn-ghost btn-sm" onclick="closeModal()">Abbrechen</button>
+        <button class="btn btn-ghost btn-sm" onclick="closeTeamModal()">Abbrechen</button>
         <button class="btn btn-success btn-sm" onclick="saveTeam()">Speichern</button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <dialog id="match-modal" class="modal">
+    <div class="modal-box max-w-md">
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">✕</button>
+      </form>
+      <h3 class="font-bold text-lg mb-5" id="match-modal-title">Match erfassen</h3>
+
+      <input type="hidden" id="match-modal-id">
+
+      <div class="mb-3">
+        <label class="label py-0 mb-1"><span class="label-text text-xs">Heim-Team *</span></label>
+        <select id="match-modal-home" class="select select-bordered select-sm w-full"></select>
+      </div>
+
+      <div class="mb-3">
+        <label class="label py-0 mb-1"><span class="label-text text-xs">Gast-Team *</span></label>
+        <select id="match-modal-away" class="select select-bordered select-sm w-full"></select>
+      </div>
+
+      <div class="mb-1">
+        <label class="label py-0 mb-1"><span class="label-text text-xs">Spielmodus *</span></label>
+        <select id="match-modal-mode" class="select select-bordered select-sm w-full">
+          <option value="1x24">1 × 24 min (E-Junioren)</option>
+          <option value="2x20">2 × 20 min (Halbzeiten)</option>
+          <option value="3x20" selected>3 × 20 min (Dritteln)</option>
+        </select>
+      </div>
+
+      <div class="mt-3 mb-1">
+        <label class="label py-0 mb-1"><span class="label-text text-xs">Geplant am *</span></label>
+        <input type="datetime-local" id="match-modal-scheduled-at" class="input input-bordered input-sm w-full">
+      </div>
+
+      <div id="match-modal-error" class="text-error text-sm mt-2 hidden"></div>
+
+      <div class="modal-action">
+        <button class="btn btn-ghost btn-sm" onclick="closeMatchModal()">Abbrechen</button>
+        <button class="btn btn-success btn-sm" onclick="saveMatch()">Speichern</button>
       </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
