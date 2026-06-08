@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matchuhr – Display</title>
+<style>
+  /* Display bleibt bewusst custom – vw/vh-basiert für TV/Beamer */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #000; color: #fff; font-family: 'Segoe UI','Arial Black',sans-serif; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; user-select: none; }
+  .phase { font-size: 3vw; color: #888; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 1vh; }
+  .scoreboard { display: flex; align-items: center; justify-content: center; gap: 4vw; width: 100%; }
+  .team { text-align: center; flex: 1; }
+  .team-name { font-size: 4vw; color: #aaa; font-weight: bold; text-transform: uppercase; margin-bottom: 1vh; }
+  .team-score { font-size: 20vw; font-weight: 900; line-height: 1; }
+  .home-score { color: #00d4ff; }
+  .away-score { color: #ff6b6b; }
+  .divider { font-size: 12vw; color: #555; font-weight: 900; }
+  .clock { font-size: 12vw; font-weight: 900; color: #00d4ff; font-variant-numeric: tabular-nums; margin: 2vh 0; }
+  .clock.running { color: #00ff88; }
+  .clock.paused  { color: #fdcb6e; }
+  .clock.ended   { color: #ff6b6b; }
+  .clock.break   { color: #a29bfe; }
+  .penalties { display: flex; gap: 3vw; margin-top: 2vh; }
+  .pen-side { min-width: 20vw; }
+  .pen-title { font-size: 1.5vw; color: #888; text-transform: uppercase; margin-bottom: 1vh; text-align: center; }
+  .pen-item { background: rgba(214,48,49,0.2); border: 1px solid #d63031; border-radius: 8px; padding: 0.8vh 1.5vw; margin-bottom: 0.8vh; display: flex; justify-content: space-between; font-size: 2.2vw; font-weight: bold; }
+  .pen-item .pen-num { color: #fff; }
+  .pen-item .pen-rem { color: #ff7675; }
+  .timeout-banner { position: fixed; top: 0; left: 0; right: 0; background: rgba(253,203,110,0.15); border-bottom: 3px solid #fdcb6e; text-align: center; padding: 2vh; font-size: 4vw; font-weight: bold; color: #fdcb6e; display: none; }
+  .shootout-row { display: flex; gap: 6vw; margin-top: 2vh; font-size: 4vw; font-weight: bold; }
+  .so-box { text-align: center; color: #fd79a8; }
+  .so-label { font-size: 1.5vw; color: #aaa; }
+  .ended-banner { font-size: 5vw; font-weight: 900; color: #fdcb6e; text-align: center; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+  .conn-dot { position: fixed; top: 10px; right: 14px; font-size: 1.2vw; color: #888; }
+  .game-status-bullet { width: 1.8vw; height: 1.8vw; border-radius: 50%; margin: 0 auto 1vh; transition: background 0.3s, box-shadow 0.3s; }
+  .game-status-bullet.running { background: #00ff88; box-shadow: 0 0 12px rgba(0,255,136,0.8); }
+  .game-status-bullet.timeout { background: #fdcb6e; box-shadow: 0 0 12px rgba(253,203,110,0.8); }
+  .game-status-bullet.stopped { background: #ff6b6b; box-shadow: 0 0 12px rgba(255,107,107,0.6); }
+  .game-status-bullet.inactive { background: #444; box-shadow: none; }
+</style>
+<script type="module" src="./display.ts"></script>
+</head>
+<body>
+<div class="timeout-banner" id="to-banner"></div>
+<div class="conn-dot" id="conn-dot">⚫</div>
+<div class="phase" id="phase-label"></div>
+<div class="scoreboard">
+  <div class="team">
+    <div class="team-name" id="home-name">HEIM</div>
+    <div class="team-score home-score" id="home-score">0</div>
+  </div>
+  <div class="divider">:</div>
+  <div class="team">
+    <div class="team-name" id="away-name">GAST</div>
+    <div class="team-score away-score" id="away-score">0</div>
+  </div>
+</div>
+<div class="clock" id="clock">20:00</div>
+<div class="game-status-bullet inactive" id="game-status-bullet"></div>
+<div class="penalties">
+  <div class="pen-side">
+    <div class="pen-title" id="pen-home-title">Strafen Heim</div>
+    <div id="pen-home-list"></div>
+  </div>
+  <div class="pen-side">
+    <div class="pen-title" id="pen-away-title">Strafen Gast</div>
+    <div id="pen-away-list"></div>
+  </div>
+</div>
+<div class="shootout-row" id="so-row" style="display:none">
+  <div class="so-box"><div class="so-label" id="so-home-lbl">Heim</div><div id="so-home">0</div></div>
+  <div class="so-box"><div class="so-label" id="so-away-lbl">Gast</div><div id="so-away">0</div></div>
+</div>
+<div class="ended-banner" id="ended-banner" style="display:none">SPIEL BEENDET</div>
+</body>
+</html>

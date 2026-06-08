@@ -1,99 +1,98 @@
-require('dotenv').config();
+import 'dotenv/config';
+import { PrismaClient } from './generated/prisma';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+import express from 'express';
+import http from 'http';
+import WebSocket, { WebSocketServer } from 'ws';
+import path from 'path';
+import type { GameState, GameMode, Penalty, ClientCommand, ServerMessage } from './src/shared/types';
 
-const { PrismaClient } = require('./generated/prisma');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { Pool } = require('pg');
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool    = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma  = new PrismaClient({ adapter });
 
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const path = require('path');
-
-const app = express();
+const app    = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss    = new WebSocketServer({ server });
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 // ─── Teams API ────────────────────────────────────────────────────────────────
-app.get('/api/teams', async (req, res) => {
+app.get('/api/teams', async (_req, res) => {
   try {
     const teams = await prisma.team.findMany({ orderBy: { name: 'asc' } });
     res.json(teams);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/teams', async (req, res) => {
   const { name, abbreviation, color, organization } = req.body;
-  if (!name) return res.status(400).json({ error: 'Name ist pflicht' });
+  if (!name) return void res.status(400).json({ error: 'Name ist pflicht' });
   try {
     const team = await prisma.team.create({ data: { name, abbreviation: abbreviation || '', color: color || '#00d4ff', organization: organization || '' } });
     res.status(201).json(team);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/teams/:id', async (req, res) => {
   const { name, abbreviation, color, organization } = req.body;
-  if (!name) return res.status(400).json({ error: 'Name ist pflicht' });
+  if (!name) return void res.status(400).json({ error: 'Name ist pflicht' });
   try {
     const team = await prisma.team.update({ where: { id: parseInt(req.params.id) }, data: { name, abbreviation: abbreviation || '', color: color || '#00d4ff', organization: organization || '' } });
     res.json(team);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/teams/:id', async (req, res) => {
   try {
     await prisma.team.delete({ where: { id: parseInt(req.params.id) } });
     res.status(204).send();
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Other API features ───────────────────────────────────────────────────────
-app.get('/api/health', async (req, res) => {
+// ─── Health ───────────────────────────────────────────────────────────────────
+app.get('/api/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ db: 'ok' });
-  } catch (e) {
+  } catch {
     res.json({ db: 'error' });
   }
 });
 
-// ─── Game State (In-Memory) ───────────────────────────────────────────────────
-let state = createInitialState();
-let currentMatchId = null; // ID des aktiven Match in der DB
+// ─── Game State ───────────────────────────────────────────────────────────────
+let state: GameState = createInitialState();
+let currentMatchId: number | null = null;
 
-function createInitialState() {
+function createInitialState(): GameState {
   return {
-    gameMode: '3x20',
-    periodDuration: 20 * 60,
-    breakDuration: 10 * 60,
-    otDuration: 5 * 60,
-    homeTeam: 'Heim',
-    awayTeam: 'Gast',
-    homeScore: 0,
-    awayScore: 0,
-    phase: 'pregame',
-    currentPeriod: 1,
-    timeRemaining: 20 * 60,
-    running: false,
-    penalties: [],
-    homeTimeouts: 1,
-    awayTimeouts: 1,
-    timeoutActive: null,
+    gameMode:        '3x20',
+    periodDuration:  20 * 60,
+    breakDuration:   10 * 60,
+    otDuration:       5 * 60,
+    homeTeam:        'Heim',
+    awayTeam:        'Gast',
+    homeScore:       0,
+    awayScore:       0,
+    phase:           'pregame',
+    currentPeriod:   1,
+    timeRemaining:   20 * 60,
+    running:         false,
+    penalties:       [],
+    homeTimeouts:    1,
+    awayTimeouts:    1,
+    timeoutActive:   null,
     timeoutRemaining: 30,
-    homeShootout: 0,
-    awayShootout: 0,
-    lastTick: null,
+    homeShootout:    0,
+    awayShootout:    0,
+    lastTick:        null,
   };
 }
 
-// ─── Crash Recovery: State in DB speichern ───────────────────────────────────
-async function saveStateToDb() {
+// ─── Crash Recovery ───────────────────────────────────────────────────────────
+async function saveStateToDb(): Promise<void> {
   if (!currentMatchId) return;
   try {
     await prisma.match.update({
@@ -105,27 +104,24 @@ async function saveStateToDb() {
         phase:         state.phase,
         currentPeriod: String(state.currentPeriod),
         timeRemaining: state.timeRemaining,
-        running:       false, // beim Speichern immer als gestoppt markieren
-        penalties:     state.penalties,
+        running:       false,
+        penalties:     state.penalties as any,
       }
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error('State save failed:', e.message);
   }
 }
 
-// Alle 5 Sekunden speichern
 setInterval(saveStateToDb, 5000);
 
-// ─── Crash Recovery: Letzten State beim Start laden ──────────────────────────
-async function loadLastMatch() {
+async function loadLastMatch(): Promise<void> {
   try {
     const match = await prisma.match.findFirst({
       where: { phase: { not: 'ended' } },
       orderBy: { savedAt: 'desc' },
       include: { homeTeam: true, awayTeam: true }
     });
-
     if (!match) return;
 
     console.log(`\n⚠️  Unbeendetes Spiel gefunden: ${match.homeTeam.name} vs ${match.awayTeam.name}`);
@@ -134,39 +130,37 @@ async function loadLastMatch() {
     currentMatchId = match.id;
     state = {
       ...createInitialState(),
-      homeTeam:      match.homeTeam.name,
-      awayTeam:      match.awayTeam.name,
-      homeScore:     match.scoreHome,
-      awayScore:     match.scoreAway,
-      gameMode:      match.gameMode,
-      phase:         match.phase,
-      currentPeriod: isNaN(match.currentPeriod) ? match.currentPeriod : parseInt(match.currentPeriod),
-      timeRemaining: match.timeRemaining,
-      running:       false,
-      penalties:     Array.isArray(match.penalties) ? match.penalties : [],
+      homeTeam:       match.homeTeam.name,
+      awayTeam:       match.awayTeam.name,
+      homeScore:      match.scoreHome,
+      awayScore:      match.scoreAway,
+      gameMode:       match.gameMode as GameMode,
+      phase:          match.phase as GameState['phase'],
+      currentPeriod:  isNaN(Number(match.currentPeriod)) ? (match.currentPeriod as GameState['currentPeriod']) : parseInt(match.currentPeriod),
+      timeRemaining:  match.timeRemaining,
+      running:        false,
+      penalties: Array.isArray(match.penalties) ? match.penalties as unknown as Penalty[] : [],
       periodDuration: match.gameMode === '1x24' ? 24 * 60 : 20 * 60,
     };
-
-  } catch (e) {
+  } catch (e: any) {
     console.error('loadLastMatch failed:', e.message);
   }
 }
 
-// ─── Server-side clock tick (every 100ms) ────────────────────────────────────
-let tickInterval = null;
+// ─── Tick ─────────────────────────────────────────────────────────────────────
+let tickInterval: ReturnType<typeof setInterval> | null = null;
 
-function startTick() {
+function startTick(): void {
   if (tickInterval) return;
   tickInterval = setInterval(() => {
-    const now = Date.now();
+    const now     = Date.now();
     const elapsed = state.lastTick ? (now - state.lastTick) / 1000 : 0;
 
-    // Timeout läuft immer (unabhängig von running)
     if (state.timeoutActive) {
-      state.lastTick = now;
+      state.lastTick        = now;
       state.timeoutRemaining = Math.max(0, state.timeoutRemaining - elapsed);
       if (state.timeoutRemaining <= 0) {
-        state.timeoutActive = null;
+        state.timeoutActive   = null;
         state.timeoutRemaining = 30;
         broadcast({ type: 'BUZZER', reason: 'timeout' });
       }
@@ -174,15 +168,9 @@ function startTick() {
       return;
     }
 
-    // Spielzeit gestoppt
-    if (!state.running) {
-      state.lastTick = null;
-      return;
-    }
+    if (!state.running) { state.lastTick = null; return; }
 
-    // Spielzeit läuft
     state.lastTick = now;
-
     state.penalties = state.penalties.map(p => {
       const rem = Math.max(0, p.remaining - elapsed);
       if (rem <= 0 && p.remaining > 0) broadcast({ type: 'BUZZER', reason: 'penalty', id: p.id });
@@ -191,8 +179,8 @@ function startTick() {
 
     state.timeRemaining = Math.max(0, state.timeRemaining - elapsed);
     if (state.timeRemaining <= 0 && state.running) {
-      state.running = false;
-      state.lastTick = null;
+      state.running   = false;
+      state.lastTick  = null;
       broadcast({ type: 'BUZZER', reason: 'period' });
     }
 
@@ -201,7 +189,7 @@ function startTick() {
 }
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
-function broadcast(msg) {
+function broadcast(msg: ServerMessage): void {
   const data = JSON.stringify(msg);
   wss.clients.forEach(c => { if (c.readyState === WebSocket.OPEN) c.send(data); });
 }
@@ -209,79 +197,58 @@ function broadcast(msg) {
 wss.on('connection', ws => {
   ws.send(JSON.stringify({ type: 'STATE', state }));
   ws.on('message', raw => {
-    try { handleCommand(JSON.parse(raw)); }
+    try { handleCommand(JSON.parse(raw.toString()) as ClientCommand); }
     catch (e) { console.error('Invalid message:', e); }
   });
 });
 
-async function handleCommand(msg) {
+async function handleCommand(msg: ClientCommand): Promise<void> {
   switch (msg.cmd) {
     case 'SET_CONFIG': {
-      state.gameMode     = msg.gameMode;
+      state.gameMode      = msg.gameMode;
       state.breakDuration = msg.breakDuration;
-      state.otDuration   = msg.otDuration;
-      state.homeTeam     = msg.homeTeam;
-      state.awayTeam     = msg.awayTeam;
+      state.otDuration    = msg.otDuration;
+      state.homeTeam      = msg.homeTeam;
+      state.awayTeam      = msg.awayTeam;
       state.periodDuration = msg.gameMode === '1x24' ? 24 * 60 : 20 * 60;
-      state.timeRemaining = state.periodDuration;
-      state.phase        = 'pregame';
-      state.currentPeriod = 1;
-
-      // Match in DB anlegen (oder neues erstellen wenn keins aktiv)
+      state.timeRemaining  = state.periodDuration;
+      state.phase          = 'pregame';
+      state.currentPeriod  = 1;
       try {
-        // Altes unbeendetes Match als ended markieren
         if (currentMatchId) {
           await prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended' } });
         }
-
-        // Teams in DB suchen oder Freitext-Fallback
         const homeTeamDb = await prisma.team.findFirst({ where: { OR: [{ name: msg.homeTeam }, { abbreviation: msg.homeTeam }] } });
         const awayTeamDb = await prisma.team.findFirst({ where: { OR: [{ name: msg.awayTeam }, { abbreviation: msg.awayTeam }] } });
-
-        // Falls Team nicht in DB: temporär anlegen
-        const homeTeam = homeTeamDb || await prisma.team.create({ data: { name: msg.homeTeam, abbreviation: msg.homeTeam, color: '#00d4ff', organization: '' } });
-        const awayTeam = awayTeamDb || await prisma.team.create({ data: { name: msg.awayTeam, abbreviation: msg.awayTeam, color: '#ff6b6b', organization: '' } });
-
-        const match = await prisma.match.create({
-          data: {
-            homeTeamId:    homeTeam.id,
-            awayTeamId:    awayTeam.id,
-            gameMode:      msg.gameMode,
-            phase:         'pregame',
-            currentPeriod: '1',
-            timeRemaining: state.periodDuration,
-            running:       false,
-            penalties:     [],
-          }
+        const homeTeam   = homeTeamDb || await prisma.team.create({ data: { name: msg.homeTeam, abbreviation: msg.homeTeam, color: '#00d4ff', organization: '' } });
+        const awayTeam   = awayTeamDb || await prisma.team.create({ data: { name: msg.awayTeam, abbreviation: msg.awayTeam, color: '#ff6b6b', organization: '' } });
+        const match      = await prisma.match.create({
+          data: { homeTeamId: homeTeam.id, awayTeamId: awayTeam.id, gameMode: msg.gameMode, phase: 'pregame', currentPeriod: '1', timeRemaining: state.periodDuration, running: false, penalties: [] }
         });
         currentMatchId = match.id;
         console.log(`✅ Match #${currentMatchId} erstellt: ${msg.homeTeam} vs ${msg.awayTeam}`);
-      } catch (e) {
-        console.error('Match create failed:', e.message);
-      }
+      } catch (e: any) { console.error('Match create failed:', e.message); }
       break;
     }
     case 'START':
       if (!state.running && state.phase !== 'ended') {
-        state.running = true;
+        state.running  = true;
         state.lastTick = Date.now();
         if (state.phase === 'pregame') state.phase = 'period';
-
-        // startedAt beim ersten Start setzen
         if (currentMatchId) {
           try {
             const match = await prisma.match.findUnique({ where: { id: currentMatchId } });
-            if (!match.startedAt) {
+            if (match && !match.startedAt) {
               await prisma.match.update({ where: { id: currentMatchId }, data: { startedAt: new Date(), phase: 'period' } });
             }
-          } catch (e) { console.error('startedAt update failed:', e.message); }
+          } catch (e: any) { console.error('startedAt update failed:', e.message); }
         }
       }
       break;
     case 'STOP':
-      state.running = false;
+      state.running  = false;
       state.lastTick = null;
-      await saveStateToDb(); // sofort speichern beim Stop
+      await saveStateToDb();
       break;
     case 'NEXT_PHASE':
       advancePhase();
@@ -289,19 +256,19 @@ async function handleCommand(msg) {
       break;
     case 'RESET':
       if (currentMatchId) {
-        try { await prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended' } }); } catch (e) {}
+        try { await prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended' } }); } catch { }
       }
       currentMatchId = null;
       state = createInitialState();
       break;
-    case 'GOAL_HOME': state.homeScore++; break;
-    case 'GOAL_AWAY': state.awayScore++; break;
-    case 'UNDO_HOME': state.homeScore = Math.max(0, state.homeScore - 1); break;
-    case 'UNDO_AWAY': state.awayScore = Math.max(0, state.awayScore - 1); break;
-    case 'SO_HOME': state.homeShootout++; break;
-    case 'SO_AWAY': state.awayShootout++; break;
+    case 'GOAL_HOME':  state.homeScore++; break;
+    case 'GOAL_AWAY':  state.awayScore++; break;
+    case 'UNDO_HOME':  state.homeScore = Math.max(0, state.homeScore - 1); break;
+    case 'UNDO_AWAY':  state.awayScore = Math.max(0, state.awayScore - 1); break;
+    case 'SO_HOME':    state.homeShootout++; break;
+    case 'SO_AWAY':    state.awayShootout++; break;
     case 'ADD_PENALTY':
-      state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player || '', duration: msg.duration * 60, remaining: msg.duration * 60 });
+      state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player, duration: msg.duration * 60, remaining: msg.duration * 60 });
       break;
     case 'REMOVE_PENALTY':
       state.penalties = state.penalties.filter(p => p.id !== msg.id);
@@ -316,25 +283,22 @@ async function handleCommand(msg) {
     case 'ADJUST_TIME': {
       const delta = msg.delta;
       state.timeRemaining = Math.max(0, state.timeRemaining + delta);
-      state.penalties = state.penalties.map(p => ({
-        ...p,
-        remaining: Math.max(0, p.remaining + delta)
-      }));
+      state.penalties = state.penalties.map(p => ({ ...p, remaining: Math.max(0, p.remaining + delta) }));
       break;
     }
   }
   broadcast({ type: 'STATE', state });
 }
 
-function advancePhase() {
-  state.running = false;
-  state.lastTick = null;
-  state.penalties = [];
+function advancePhase(): void {
+  state.running     = false;
+  state.lastTick    = null;
+  state.penalties   = [];
   const periods = state.gameMode === '3x20' ? 3 : state.gameMode === '2x20' ? 2 : 1;
   if (state.phase === 'pregame') {
     state.phase = 'period'; state.currentPeriod = 1; state.timeRemaining = state.periodDuration;
   } else if (state.phase === 'period') {
-    if (state.currentPeriod < periods) {
+    if (typeof state.currentPeriod === 'number' && state.currentPeriod < periods) {
       state.phase = 'break'; state.timeRemaining = state.breakDuration;
     } else {
       state.phase = 'break'; state.timeRemaining = state.breakDuration; state.currentPeriod = 'OT_PENDING';
@@ -343,14 +307,14 @@ function advancePhase() {
     if (state.currentPeriod === 'OT_PENDING') {
       state.phase = 'overtime'; state.currentPeriod = 'OT'; state.timeRemaining = state.otDuration;
     } else {
-      state.phase = 'period'; state.currentPeriod++; state.timeRemaining = state.periodDuration;
+      state.phase = 'period'; state.currentPeriod = (state.currentPeriod as number) + 1; state.timeRemaining = state.periodDuration;
     }
   } else if (state.phase === 'overtime') {
     state.phase = 'shootout'; state.currentPeriod = 'SO'; state.timeRemaining = 0;
   } else if (state.phase === 'shootout') {
     state.phase = 'ended';
     if (currentMatchId) {
-      prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended', scoreHome: state.homeScore, scoreAway: state.awayScore } }).catch(e => console.error(e.message));
+      prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended', scoreHome: state.homeScore, scoreAway: state.awayScore } }).catch((e: any) => console.error(e.message));
     }
   }
 }
@@ -364,7 +328,6 @@ server.listen(PORT, async () => {
   console.log(`   Display:      http://localhost:${PORT}/display.html`);
   console.log(`   Manager:      http://localhost:${PORT}/manager.html`);
   console.log(`\n   Prisma Studio: npx prisma studio  →  http://localhost:5555\n`);
-
   await loadLastMatch();
   startTick();
 });
