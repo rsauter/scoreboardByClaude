@@ -593,6 +593,10 @@ async function handleCommand(msg: ClientCommand): Promise<void> {
       state.penalties = state.penalties.map(p => ({ ...p, remaining: Math.max(0, p.remaining + delta) }));
       break;
     }
+    case 'SET_TIME': {
+      state.timeRemaining = Math.max(0, msg.seconds);
+      break;
+    }
   }
   broadcast({ type: 'STATE', state });
 }

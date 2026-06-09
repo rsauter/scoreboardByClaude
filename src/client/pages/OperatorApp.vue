@@ -7,11 +7,21 @@
       <div class="card bg-base-100 shadow col-span-2">
         <div class="card-body py-3 px-4">
           <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-2">Spielzeit</h2>
-          <div class="clock-display text-5xl font-bold text-primary text-center">{{ formattedTime }}</div>
+          <input
+            ref="clockInputEl"
+            type="text"
+            class="clock-display text-5xl font-bold text-primary text-center w-full bg-transparent border-0 outline-none cursor-default"
+            :class="{ 'cursor-text border-b-2 border-primary/40': showTimeAdjust }"
+            v-model="clockDisplayValue"
+            :disabled="!showTimeAdjust"
+            @keyup.enter="onClockEnter"
+            title="Zeit direkt eingeben (MM:SS) wenn Uhr gestoppt"
+          />
+          <div class="text-center text-xs text-base-content/30 my-0.5" v-if="showTimeAdjust">MM:SS eingeben · Enter zum Übernehmen</div>
           <div class="text-center text-sm text-base-content/50 my-1">{{ phaseLabelText }}</div>
 
           <div class="flex items-center justify-center gap-3 my-1" v-if="showTimeAdjust">
-            <span class="text-xs text-base-content/40">Zeitkorrektur</span>
+            <span class="text-xs text-base-content/40">Feinkorrektur</span>
             <button @click="adjustTime(-1)" title="−1 Sekunde" class="btn-adjust btn btn-sm btn-ghost border border-base-content/20 text-primary">−</button>
             <button @click="adjustTime(1)" title="+1 Sekunde" class="btn-adjust btn btn-sm btn-ghost border border-base-content/20 text-primary">+</button>
           </div>
@@ -133,6 +143,8 @@ import type { GameState, ClientCommand } from '../../shared/types';
 const wsStatus = ref('Verbinde...');
 const gameState = ref<GameState | null>(null);
 const penalty = ref({ team: 'home' as 'home' | 'away', player: '', duration: 120 });
+const clockDisplayValue = ref('');
+const clockInputEl = ref<HTMLInputElement | null>(null);
 let ws: WebSocket | null = null;
 
 function wsUrl() {
@@ -175,7 +187,11 @@ function connectWebSocket() {
   ws.addEventListener('message', event => {
     const message = JSON.parse(event.data) as { type: string; state?: GameState; reason?: string };
     if (message.type === 'STATE' && message.state) {
+      // Nur updaten wenn der Clock-Input gerade nicht fokussiert ist
       gameState.value = message.state;
+      if (document.activeElement !== clockInputEl.value) {
+        clockDisplayValue.value = formatTime(message.state.timeRemaining);
+      }
     }
     if (message.type === 'BUZZER' && message.reason) {
       playBuzzer(message.reason);
@@ -190,6 +206,29 @@ function sendCmd(cmd: ClientCommand['cmd'], extra: Partial<ClientCommand> = {}) 
 
 function adjustTime(delta: number) {
   sendCmd('ADJUST_TIME', { delta } as any);
+}
+
+function parseTimeInput(raw: string): number | null {
+  const s = raw.trim();
+  if (s.includes(':')) {
+    const [mm, ss] = s.split(':').map(Number);
+    if (!isNaN(mm) && !isNaN(ss)) return mm * 60 + ss;
+  } else {
+    const n = parseInt(s);
+    if (!isNaN(n)) return n;
+  }
+  return null;
+}
+
+function onClockEnter(e: KeyboardEvent) {
+  const seconds = parseTimeInput(clockDisplayValue.value);
+  if (seconds !== null && seconds >= 0) {
+    clockDisplayValue.value = formatTime(seconds);
+    sendCmd('SET_TIME', { seconds } as any);
+  } else {
+    clockDisplayValue.value = formattedTime.value;
+  }
+  (e.target as HTMLInputElement).blur();
 }
 
 function addPenalty() {
@@ -229,6 +268,7 @@ function playBuzzer(reason: string) {
 onMounted(() => {
   connectWebSocket();
   updateStatusBar();
+  clockDisplayValue.value = formattedTime.value;
 });
 
 onUnmounted(() => {
