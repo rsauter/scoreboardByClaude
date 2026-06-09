@@ -155,11 +155,11 @@ function formatTime(seconds: number) {
 }
 
 function penaltyLabel(pen: { team: 'home' | 'away'; player: string; duration: number; remaining: number }) {
-  return `${pen.team === 'home' ? gameState?.homeTeam : gameState?.awayTeam} #${pen.player || '?'} – ${Math.floor(pen.duration / 60)} min`;
+  return `${pen.team === 'home' ? gameState.value?.homeTeam : gameState.value?.awayTeam} #${pen.player || '?'} – ${Math.floor(pen.duration / 60)} min`;
 }
 
 function timeoutButtonDisabled(team: 'home' | 'away') {
-  return !gameState || !!gameState.timeoutActive || (team === 'home' ? gameState.homeTimeouts === 0 : gameState.awayTimeouts === 0);
+  return !gameState.value || !!gameState.value.timeoutActive || (team === 'home' ? gameState.value.homeTimeouts === 0 : gameState.value.awayTimeouts === 0);
 }
 
 function connectWebSocket() {
