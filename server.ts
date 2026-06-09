@@ -66,6 +66,68 @@ app.get('/api/dashboard', async (_req, res) => {
   }
 });
 
+// ─── Players API ──────────────────────────────────────────────────────────────
+app.get('/api/players', async (_req, res) => {
+  try {
+    const players = await prisma.player.findMany({
+      orderBy: { name: 'asc' },
+      include: { teams: { include: { team: true } } }
+    });
+    res.json(players);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/players', async (req, res) => {
+  const { name, number, position, teamIds } = req.body;
+  if (!name) return void res.status(400).json({ error: 'Name ist Pflicht' });
+  try {
+    const player = await prisma.player.create({
+      data: {
+        name,
+        number: number != null ? Number(number) : null,
+        position: position || '',
+        teams: {
+          create: (teamIds ?? []).map((id: number) => ({ teamId: id }))
+        }
+      },
+      include: { teams: { include: { team: true } } }
+    });
+    res.status(201).json(player);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/players/:id', async (req, res) => {
+  const playerId = parseInt(req.params.id);
+  const { name, number, position, teamIds } = req.body;
+  if (!name) return void res.status(400).json({ error: 'Name ist Pflicht' });
+  try {
+    // TeamPlayer: alle löschen und neu setzen (einfachste korrekte Lösung für n:m)
+    await prisma.teamPlayer.deleteMany({ where: { playerId } });
+    const player = await prisma.player.update({
+      where: { id: playerId },
+      data: {
+        name,
+        number: number != null ? Number(number) : null,
+        position: position || '',
+        teams: {
+          create: (teamIds ?? []).map((id: number) => ({ teamId: id }))
+        }
+      },
+      include: { teams: { include: { team: true } } }
+    });
+    res.json(player);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/players/:id', async (req, res) => {
+  const playerId = parseInt(req.params.id);
+  try {
+    await prisma.teamPlayer.deleteMany({ where: { playerId } });
+    await prisma.player.delete({ where: { id: playerId } });
+    res.status(204).send();
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Teams API ────────────────────────────────────────────────────────────────
 app.get('/api/teams', async (_req, res) => {
   try {
@@ -96,6 +158,31 @@ app.delete('/api/teams/:id', async (req, res) => {
   try {
     await prisma.team.delete({ where: { id: parseInt(req.params.id) } });
     res.status(204).send();
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/teams/:teamId/players/:playerId', async (req, res) => {
+  try {
+    await prisma.teamPlayer.delete({
+      where: {
+        teamId_playerId: {
+          teamId: parseInt(req.params.teamId),
+          playerId: parseInt(req.params.playerId),
+        }
+      }
+    });
+    res.status(204).send();
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/teams/:id/players', async (req, res) => {
+  try {
+    const teamPlayers = await prisma.teamPlayer.findMany({
+      where: { teamId: parseInt(req.params.id) },
+      include: { player: true },
+      orderBy: { player: { name: 'asc' } }
+    });
+    res.json(teamPlayers);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
