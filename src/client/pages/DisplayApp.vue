@@ -1,52 +1,69 @@
 <template>
-  <div>
-    <div class="timeout-banner" v-if="state?.timeoutActive">⏱ TIMEOUT {{ timeoutTeam }} – {{ fmt(state.timeoutRemaining) }}</div>
+  <div class="board-outer" :style="{ '--home-color': state?.homeColor || '#c0392b', '--away-color': state?.awayColor || '#2980b9' }">
     <div class="conn-dot">{{ wsStatus }}</div>
-    <div class="phase" v-text="state?.phase ? phaseLabel(state) : '---'"></div>
 
-    <div class="scoreboard">
-      <div class="team">
-        <div class="team-name" v-text="state?.homeTeam || 'HEIM'"></div>
-        <div class="team-score home-score" v-text="state?.homeScore ?? 0"></div>
+    <!-- Header-Zeile -->
+    <div class="header-row">
+      <div class="home-header">
+        <span class="team-name">{{ state?.homeAbbr || state?.homeTeam || 'Heim' }}</span>
       </div>
-      <div class="divider">:</div>
-      <div class="team">
-        <div class="team-name" v-text="state?.awayTeam || 'GAST'"></div>
-        <div class="team-score away-score" v-text="state?.awayScore ?? 0"></div>
+      <div class="clock-area">
+        <div class="status-bullet" :class="bulletClass"></div>
+        <div class="clock" :class="clockClass">{{ state ? fmt(state.timeRemaining) : '20:00' }}</div>
+      </div>
+      <div class="away-header">
+        <span class="team-name">{{ state?.awayAbbr || state?.awayTeam || 'Gast' }}</span>
       </div>
     </div>
 
-    <div class="clock" :class="clockClass" v-text="state ? fmt(state.timeRemaining) : '20:00'"></div>
-    <div class="game-status-bullet" :class="bulletClass"></div>
+    <!-- Score-Zeile -->
+    <div class="score-row">
 
-    <div class="penalties">
-      <div class="pen-side">
-        <div class="pen-title">Strafen {{ state?.homeTeam || 'Heim' }}</div>
-        <div v-for="pen in homePenalties" :key="pen.id" class="pen-item">
-          <span class="pen-num">#{{ pen.player || '?' }}</span>
-          <span class="pen-rem" v-text="fmt(pen.remaining)"></span>
+      <!-- Heim Score + Strafen -->
+      <div class="home-score-area">
+        <span class="score-digit">{{ state?.homeScore ?? 0 }}</span>
+        <div class="pen-box">
+          <div class="pen-header">— Strafen —</div>
+          <div v-if="homePenalties.length === 0" class="pen-empty">–</div>
+          <div v-for="pen in homePenalties" :key="pen.id" class="pen-item">
+            <span class="pen-num">#{{ pen.player || '?' }}</span>
+            <span class="pen-rem">{{ fmt(pen.remaining) }}</span>
+          </div>
         </div>
       </div>
-      <div class="pen-side">
-        <div class="pen-title">Strafen {{ state?.awayTeam || 'Gast' }}</div>
-        <div v-for="pen in awayPenalties" :key="pen.id" class="pen-item">
-          <span class="pen-num">#{{ pen.player || '?' }}</span>
-          <span class="pen-rem" v-text="fmt(pen.remaining)"></span>
+
+      <!-- Mitte: Timeout / Shootout -->
+      <div class="score-center">
+        <div class="timeout-box" :class="{ active: state?.timeoutActive }">
+          <div class="timeout-label">▶▶ Timeout ⏱</div>
+          <div class="timeout-info">{{ timeoutTeam }} – {{ state ? fmt(state.timeoutRemaining) : '' }}</div>
+        </div>
+        <div class="shootout-box" v-if="state?.phase === 'shootout' && !state?.timeoutActive">
+          <div class="so-label">Shootout</div>
+          <div class="so-scores">{{ state?.homeShootout ?? 0 }} : {{ state?.awayShootout ?? 0 }}</div>
+        </div>
+      </div>
+
+      <!-- Gast Score + Strafen -->
+      <div class="away-score-area">
+        <span class="score-digit">{{ state?.awayScore ?? 0 }}</span>
+        <div class="pen-box">
+          <div class="pen-header">— Strafen —</div>
+          <div v-if="awayPenalties.length === 0" class="pen-empty">–</div>
+          <div v-for="pen in awayPenalties" :key="pen.id" class="pen-item">
+            <span class="pen-num">#{{ pen.player || '?' }}</span>
+            <span class="pen-rem">{{ fmt(pen.remaining) }}</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="shootout-row" v-if="state?.phase === 'shootout'">
-      <div class="so-box">
-        <div class="so-label" v-text="state?.homeTeam || 'Heim'"></div>
-        <div class="text-6xl" v-text="state?.homeShootout ?? 0"></div>
-      </div>
-      <div class="so-box">
-        <div class="so-label" v-text="state?.awayTeam || 'Gast'"></div>
-        <div class="text-6xl" v-text="state?.awayShootout ?? 0"></div>
-      </div>
+    <!-- Phase-Bar -->
+    <div class="phase-row">
+      <span class="phase-label">{{ state?.phase ? phaseLabel(state) : '---' }}</span>
     </div>
 
+    <!-- Spiel beendet -->
     <div class="ended-banner" v-if="state?.phase === 'ended'">SPIEL BEENDET</div>
   </div>
 </template>
@@ -66,22 +83,25 @@ function wsUrl() {
 }
 
 const clockClass = computed(() => {
-  if (!state.value) return 'clock';
-  if (state.value.phase === 'ended') return 'clock ended';
-  if (state.value.phase === 'break') return 'clock break';
-  if (state.value.running) return 'clock running';
-  return 'clock paused';
+  if (!state.value) return '';
+  if (state.value.phase === 'ended') return 'ended';
+  if (state.value.phase === 'break') return 'break';
+  if (state.value.running) return 'running';
+  return 'paused';
 });
 
 const bulletClass = computed(() => {
-  if (!state.value) return 'game-status-bullet inactive';
-  if (state.value.phase === 'ended' || state.value.phase === 'pregame') return 'game-status-bullet inactive';
-  if (state.value.timeoutActive) return 'game-status-bullet timeout';
-  if (state.value.running) return 'game-status-bullet running';
-  return 'game-status-bullet stopped';
+  if (!state.value) return 'inactive';
+  if (state.value.phase === 'ended' || state.value.phase === 'pregame') return 'inactive';
+  if (state.value.timeoutActive) return 'timeout';
+  if (state.value.running) return 'running';
+  return 'stopped';
 });
 
-const timeoutTeam = computed(() => state.value?.timeoutActive === 'home' ? state.value.homeTeam : state.value?.timeoutActive === 'away' ? state.value.awayTeam : '');
+const timeoutTeam = computed(() =>
+  state.value?.timeoutActive === 'home' ? state.value.homeTeam
+  : state.value?.timeoutActive === 'away' ? state.value.awayTeam : ''
+);
 const homePenalties = computed(() => state.value?.penalties.filter(p => p.team === 'home') ?? []);
 const awayPenalties = computed(() => state.value?.penalties.filter(p => p.team === 'away') ?? []);
 
@@ -97,11 +117,6 @@ function connectWebSocket() {
   });
 }
 
-onMounted(() => {
-  connectWebSocket();
-});
-
-onUnmounted(() => {
-  ws?.close();
-});
+onMounted(() => { connectWebSocket(); });
+onUnmounted(() => { ws?.close(); });
 </script>

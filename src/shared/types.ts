@@ -23,6 +23,10 @@ export interface GameState {
   otDuration: number;
   homeTeam: string;
   awayTeam: string;
+  homeColor: string;
+  awayColor: string;
+  homeAbbr: string;
+  awayAbbr: string;
   homeScore: number;
   awayScore: number;
   phase: GamePhase;

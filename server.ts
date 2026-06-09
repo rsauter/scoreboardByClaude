@@ -323,6 +323,10 @@ function createInitialState(): GameState {
     otDuration:       5 * 60,
     homeTeam:        'Heim',
     awayTeam:        'Gast',
+    homeColor:       '#00d4ff',
+    awayColor:       '#ff6b6b',
+    homeAbbr:        'HM',
+    awayAbbr:        'GA',
     homeScore:       0,
     awayScore:       0,
     phase:           'pregame',
@@ -381,6 +385,10 @@ async function loadLastMatch(): Promise<void> {
       ...createInitialState(),
       homeTeam:       match.homeTeam.name,
       awayTeam:       match.awayTeam.name,
+      homeColor:      match.homeTeam.color || '#00d4ff',
+      awayColor:      match.awayTeam.color || '#ff6b6b',
+      homeAbbr:       match.homeTeam.abbreviation || match.homeTeam.name,
+      awayAbbr:       match.awayTeam.abbreviation || match.awayTeam.name,
       homeScore:      match.scoreHome,
       awayScore:      match.scoreAway,
       gameMode:       match.gameMode as GameMode,
@@ -420,13 +428,16 @@ function startTick(): void {
     if (!state.running) { state.lastTick = null; return; }
 
     state.lastTick = now;
+    const newTimeRemaining = Math.max(0, state.timeRemaining - elapsed);
+    const actualElapsed = state.timeRemaining - newTimeRemaining; // exakt gleiche Basis
+
     state.penalties = state.penalties.map(p => {
-      const rem = Math.max(0, p.remaining - elapsed);
+      const rem = Math.max(0, p.remaining - actualElapsed);
       if (rem <= 0 && p.remaining > 0) broadcast({ type: 'BUZZER', reason: 'penalty', id: p.id });
       return { ...p, remaining: rem };
     }).filter(p => p.remaining > 0);
 
-    state.timeRemaining = Math.max(0, state.timeRemaining - elapsed);
+    state.timeRemaining = newTimeRemaining;
     if (state.timeRemaining <= 0 && state.running) {
       state.running   = false;
       state.lastTick  = null;
@@ -459,6 +470,10 @@ async function handleCommand(msg: ClientCommand): Promise<void> {
       state.otDuration    = msg.otDuration;
       state.homeTeam      = msg.homeTeam;
       state.awayTeam      = msg.awayTeam;
+      state.homeColor     = '#00d4ff';
+      state.awayColor     = '#ff6b6b';
+      state.homeAbbr      = msg.homeTeam;
+      state.awayAbbr      = msg.awayTeam;
       state.periodDuration = getPeriodDuration(msg.gameMode);
       state.timeRemaining  = state.periodDuration;
       state.phase          = 'pregame';
@@ -472,6 +487,11 @@ async function handleCommand(msg: ClientCommand): Promise<void> {
         const awayTeamDb = await prisma.team.findFirst({ where: { OR: [{ name: msg.awayTeam }, { abbreviation: msg.awayTeam }] } });
         const homeTeam   = homeTeamDb || await prisma.team.create({ data: { name: msg.homeTeam, abbreviation: msg.homeTeam, color: '#00d4ff', organization: '' } });
         const awayTeam   = awayTeamDb || await prisma.team.create({ data: { name: msg.awayTeam, abbreviation: msg.awayTeam, color: '#ff6b6b', organization: '' } });
+
+        state.homeColor = homeTeam.color || '#00d4ff';
+        state.awayColor = awayTeam.color || '#ff6b6b';
+        state.homeAbbr  = homeTeam.abbreviation || msg.homeTeam;
+        state.awayAbbr  = awayTeam.abbreviation || msg.awayTeam;
 
         if (msg.matchId) {
           const updated = await prisma.match.updateMany({
@@ -549,10 +569,14 @@ async function handleCommand(msg: ClientCommand): Promise<void> {
     case 'UNDO_AWAY':  state.awayScore = Math.max(0, state.awayScore - 1); break;
     case 'SO_HOME':    state.homeShootout++; break;
     case 'SO_AWAY':    state.awayShootout++; break;
-    case 'ADD_PENALTY':
-      // msg.duration is provided in seconds from the client
-      state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player, duration: msg.duration, remaining: msg.duration });
+    case 'ADD_PENALTY': {
+      // remaining auf denselben Nachkomma-Bruchteil wie timeRemaining synchronisieren
+      // damit fmt(Math.ceil) für beide gleichzeitig springt
+      const frac = state.timeRemaining - Math.floor(state.timeRemaining);
+      const remaining = msg.duration - (1 - frac); // gleiche Sekundengrenze
+      state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player, duration: msg.duration, remaining });
       break;
+    }
     case 'REMOVE_PENALTY':
       state.penalties = state.penalties.filter(p => p.id !== msg.id);
       break;
@@ -574,9 +598,9 @@ async function handleCommand(msg: ClientCommand): Promise<void> {
 }
 
 function advancePhase(): void {
-  state.running     = false;
-  state.lastTick    = null;
-  state.penalties   = [];
+  state.running  = false;
+  state.lastTick = null;
+  // Penalties NICHT löschen — sie bestehen über Pausen hinweg (Reglement)
   const periods = state.gameMode === '3x20' ? 3 : state.gameMode === '2x20' ? 2 : 1;
   if (state.phase === 'pregame') {
     state.phase = 'period'; state.currentPeriod = 1; state.timeRemaining = state.periodDuration;
@@ -596,6 +620,7 @@ function advancePhase(): void {
     state.phase = 'shootout'; state.currentPeriod = 'SO'; state.timeRemaining = 0;
   } else if (state.phase === 'shootout') {
     state.phase = 'ended';
+    state.penalties = []; // Erst am Spielende leeren
     if (currentMatchId) {
       prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended', scoreHome: state.homeScore, scoreAway: state.awayScore } }).catch((e: any) => console.error(e.message));
     }
