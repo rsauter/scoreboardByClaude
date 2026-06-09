@@ -27,7 +27,7 @@
   .pen-item { background: rgba(214,48,49,0.2); border: 1px solid #d63031; border-radius: 8px; padding: 0.8vh 1.5vw; margin-bottom: 0.8vh; display: flex; justify-content: space-between; font-size: 2.2vw; font-weight: bold; }
   .pen-item .pen-num { color: #fff; }
   .pen-item .pen-rem { color: #ff7675; }
-  .timeout-banner { position: fixed; top: 0; left: 0; right: 0; background: rgba(253,203,110,0.15); border-bottom: 3px solid #fdcb6e; text-align: center; padding: 2vh; font-size: 4vw; font-weight: bold; color: #fdcb6e; display: none; }
+  .timeout-banner { position: fixed; top: 0; left: 0; right: 0; background: rgba(253,203,110,0.15); border-bottom: 3px solid #fdcb6e; text-align: center; padding: 2vh; font-size: 4vw; font-weight: bold; color: #fdcb6e; display: block; }
   .shootout-row { display: flex; gap: 6vw; margin-top: 2vh; font-size: 4vw; font-weight: bold; }
   .so-box { text-align: center; color: #fd79a8; }
   .so-label { font-size: 1.5vw; color: #aaa; }
@@ -40,40 +40,11 @@
   .game-status-bullet.stopped { background: #ff6b6b; box-shadow: 0 0 12px rgba(255,107,107,0.6); }
   .game-status-bullet.inactive { background: #444; box-shadow: none; }
 </style>
-  <script type="module" crossorigin src="/assets/display-D7n01h4Y.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/shared-B3KpYbbB.js">
+  <script type="module" crossorigin src="/assets/display-WRiSzSZX.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/runtime-dom.esm-bundler-DtNi7YIi.js">
+  <link rel="modulepreload" crossorigin href="/assets/shared-D7rzM_1s.js">
 </head>
 <body>
-<div class="timeout-banner" id="to-banner"></div>
-<div class="conn-dot" id="conn-dot">⚫</div>
-<div class="phase" id="phase-label"></div>
-<div class="scoreboard">
-  <div class="team">
-    <div class="team-name" id="home-name">HEIM</div>
-    <div class="team-score home-score" id="home-score">0</div>
-  </div>
-  <div class="divider">:</div>
-  <div class="team">
-    <div class="team-name" id="away-name">GAST</div>
-    <div class="team-score away-score" id="away-score">0</div>
-  </div>
-</div>
-<div class="clock" id="clock">20:00</div>
-<div class="game-status-bullet inactive" id="game-status-bullet"></div>
-<div class="penalties">
-  <div class="pen-side">
-    <div class="pen-title" id="pen-home-title">Strafen Heim</div>
-    <div id="pen-home-list"></div>
-  </div>
-  <div class="pen-side">
-    <div class="pen-title" id="pen-away-title">Strafen Gast</div>
-    <div id="pen-away-list"></div>
-  </div>
-</div>
-<div class="shootout-row" id="so-row" style="display:none">
-  <div class="so-box"><div class="so-label" id="so-home-lbl">Heim</div><div id="so-home">0</div></div>
-  <div class="so-box"><div class="so-label" id="so-away-lbl">Gast</div><div id="so-away">0</div></div>
-</div>
-<div class="ended-banner" id="ended-banner" style="display:none">SPIEL BEENDET</div>
+  <div id="app"></div>
 </body>
 </html>

@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import tailwindcss from '@tailwindcss/vite';
+import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
-  plugins: [tailwindcss()],
+  plugins: [tailwindcss(), vue()],
   root: 'src/client',
   server: {
     host: '0.0.0.0',
@@ -20,10 +21,8 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        gamestart: resolve(__dirname, 'src/client/gamestart.html'),
-        operator:  resolve(__dirname, 'src/client/operator.html'),
-        manager:   resolve(__dirname, 'src/client/manager.html'),
-        display:   resolve(__dirname, 'src/client/display.html'),
+        main: resolve(__dirname, 'src/client/index.html'),
+        display: resolve(__dirname, 'src/client/display.html'),
       }
     }
   }

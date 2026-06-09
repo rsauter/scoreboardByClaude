@@ -147,7 +147,7 @@ function handleCommand(msg) {
     case 'SO_HOME': state.homeShootout++; break;
     case 'SO_AWAY': state.awayShootout++; break;
     case 'ADD_PENALTY':
-      state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player || '', duration: msg.duration * 60, remaining: msg.duration * 60 });
+      state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player || '', duration: msg.duration, remaining: msg.duration });
       break;
     case 'REMOVE_PENALTY':
       state.penalties = state.penalties.filter(p => p.id !== msg.id);
