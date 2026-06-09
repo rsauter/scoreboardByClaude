@@ -431,11 +431,14 @@ function startTick(): void {
     const newTimeRemaining = Math.max(0, state.timeRemaining - elapsed);
     const actualElapsed = state.timeRemaining - newTimeRemaining; // exakt gleiche Basis
 
-    state.penalties = state.penalties.map(p => {
-      const rem = Math.max(0, p.remaining - actualElapsed);
-      if (rem <= 0 && p.remaining > 0) broadcast({ type: 'BUZZER', reason: 'penalty', id: p.id });
-      return { ...p, remaining: rem };
-    }).filter(p => p.remaining > 0);
+    // Strafen laufen nur während aktiver Spielzeit (Drittel / Verlängerung), nicht in Pausen
+    if (state.phase === 'period' || state.phase === 'overtime') {
+      state.penalties = state.penalties.map(p => {
+        const rem = Math.max(0, p.remaining - actualElapsed);
+        if (rem <= 0 && p.remaining > 0) broadcast({ type: 'BUZZER', reason: 'penalty', id: p.id });
+        return { ...p, remaining: rem };
+      }).filter(p => p.remaining > 0);
+    }
 
     state.timeRemaining = newTimeRemaining;
     if (state.timeRemaining <= 0 && state.running) {

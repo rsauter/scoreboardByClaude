@@ -7,21 +7,24 @@
       <div class="card bg-base-100 shadow col-span-2">
         <div class="card-body py-3 px-4">
           <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-2">Spielzeit</h2>
+          <!-- Läuft: statische Anzeige. Gestoppt: editierbares Textfeld -->
+          <div v-if="gameState?.running" class="clock-display text-5xl font-bold text-primary text-center">{{ formattedTime }}</div>
           <input
+            v-else
             ref="clockInputEl"
             type="text"
-            class="clock-display text-5xl font-bold text-primary text-center w-full bg-transparent border-0 outline-none cursor-default"
-            :class="{ 'cursor-text border-b-2 border-primary/40': showTimeAdjust }"
-            v-model="clockDisplayValue"
-            :disabled="!showTimeAdjust"
-            @keyup.enter="onClockEnter"
-            title="Zeit direkt eingeben (MM:SS) wenn Uhr gestoppt"
+            :value="clockDisplayValue"
+            @focus="onClockFocus"
+            @blur="onClockBlur"
+            @keydown.enter="onClockEnter"
+            @keydown.escape="onClockEscape"
+            class="clock-display text-5xl font-bold text-primary text-center w-full bg-transparent border-b-2 border-primary/30 focus:border-primary outline-none cursor-text"
+            title="Zeit direkt eintippen (MM:SS), Enter zum Übernehmen"
           />
-          <div class="text-center text-xs text-base-content/30 my-0.5" v-if="showTimeAdjust">MM:SS eingeben · Enter zum Übernehmen</div>
           <div class="text-center text-sm text-base-content/50 my-1">{{ phaseLabelText }}</div>
 
           <div class="flex items-center justify-center gap-3 my-1" v-if="showTimeAdjust">
-            <span class="text-xs text-base-content/40">Feinkorrektur</span>
+            <span class="text-xs text-base-content/40">Zeitkorrektur</span>
             <button @click="adjustTime(-1)" title="−1 Sekunde" class="btn-adjust btn btn-sm btn-ghost border border-base-content/20 text-primary">−</button>
             <button @click="adjustTime(1)" title="+1 Sekunde" class="btn-adjust btn btn-sm btn-ghost border border-base-content/20 text-primary">+</button>
           </div>
@@ -117,6 +120,17 @@
       <div class="card bg-base-100 shadow col-span-2" v-if="gameState?.phase === 'shootout'">
         <div class="card-body py-3 px-4">
           <h2 class="text-xs text-base-content/50 uppercase tracking-widest mb-3">Penalty / Shootout</h2>
+
+          <!-- Gesperrte Spieler Warnung -->
+          <div v-if="blockedPlayers.length > 0" class="alert alert-warning py-2 px-3 mb-3 text-sm">
+            <span>⚠️ Gesperrt – darf nicht am Shootout teilnehmen:</span>
+            <ul class="mt-1 space-y-0.5">
+              <li v-for="p in blockedPlayers" :key="p.id">
+                {{ p.teamName }} #{{ p.player }} (noch {{ formatTime(p.remaining) }})
+              </li>
+            </ul>
+          </div>
+
           <div class="grid grid-cols-2 gap-4 text-center">
             <div>
               <div class="text-sm mb-1" v-text="gameState?.homeTeam"></div>
@@ -162,8 +176,44 @@ const homeTimeoutLabel = computed(() => `TO verfügbar: ${gameState.value?.homeT
 const awayTimeoutLabel = computed(() => `TO verfügbar: ${gameState.value?.awayTimeouts ?? 0}`);
 const formattedTimeoutRemaining = computed(() => formatTime(gameState.value?.timeoutRemaining ?? 0));
 
+// Spieler die beim Shootout gesperrt sind (noch aktive Strafe)
+const blockedPlayers = computed(() => {
+  if (!gameState.value) return [];
+  return gameState.value.penalties.map(p => ({
+    ...p,
+    teamName: p.team === 'home' ? gameState.value!.homeTeam : gameState.value!.awayTeam,
+  }));
+});
+
 function formatTime(seconds: number) {
   return fmt(seconds);
+}
+
+// Uhr-Eingabe: beim Fokus den aktuellen Wert ins Feld schreiben
+function onClockFocus() {
+  clockDisplayValue.value = formattedTime.value;
+}
+
+// Uhr-Eingabe: beim Verlassen ohne Enter → Wert zurücksetzen
+function onClockBlur() {
+  clockDisplayValue.value = formattedTime.value;
+}
+
+// Uhr-Eingabe: Enter → parsen und SET_TIME senden
+function onClockEnter() {
+  const raw = clockInputEl.value?.value ?? '';
+  const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) {
+    const seconds = parseInt(match[1]) * 60 + parseInt(match[2]);
+    sendCmd('SET_TIME', { seconds } as any);
+  }
+  clockInputEl.value?.blur();
+}
+
+// Uhr-Eingabe: Escape → abbrechen
+function onClockEscape() {
+  clockDisplayValue.value = formattedTime.value;
+  clockInputEl.value?.blur();
 }
 
 function penaltyLabel(pen: { team: 'home' | 'away'; player: string; duration: number; remaining: number }) {
@@ -187,10 +237,10 @@ function connectWebSocket() {
   ws.addEventListener('message', event => {
     const message = JSON.parse(event.data) as { type: string; state?: GameState; reason?: string };
     if (message.type === 'STATE' && message.state) {
-      // Nur updaten wenn der Clock-Input gerade nicht fokussiert ist
       gameState.value = message.state;
+      // Uhranzeige synchronisieren, solange das Feld nicht aktiv editiert wird
       if (document.activeElement !== clockInputEl.value) {
-        clockDisplayValue.value = formatTime(message.state.timeRemaining);
+        clockDisplayValue.value = fmt(message.state.timeRemaining);
       }
     }
     if (message.type === 'BUZZER' && message.reason) {
@@ -206,29 +256,6 @@ function sendCmd(cmd: ClientCommand['cmd'], extra: Partial<ClientCommand> = {}) 
 
 function adjustTime(delta: number) {
   sendCmd('ADJUST_TIME', { delta } as any);
-}
-
-function parseTimeInput(raw: string): number | null {
-  const s = raw.trim();
-  if (s.includes(':')) {
-    const [mm, ss] = s.split(':').map(Number);
-    if (!isNaN(mm) && !isNaN(ss)) return mm * 60 + ss;
-  } else {
-    const n = parseInt(s);
-    if (!isNaN(n)) return n;
-  }
-  return null;
-}
-
-function onClockEnter(e: KeyboardEvent) {
-  const seconds = parseTimeInput(clockDisplayValue.value);
-  if (seconds !== null && seconds >= 0) {
-    clockDisplayValue.value = formatTime(seconds);
-    sendCmd('SET_TIME', { seconds } as any);
-  } else {
-    clockDisplayValue.value = formattedTime.value;
-  }
-  (e.target as HTMLInputElement).blur();
 }
 
 function addPenalty() {
@@ -268,7 +295,6 @@ function playBuzzer(reason: string) {
 onMounted(() => {
   connectWebSocket();
   updateStatusBar();
-  clockDisplayValue.value = formattedTime.value;
 });
 
 onUnmounted(() => {
