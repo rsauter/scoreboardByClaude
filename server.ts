@@ -463,7 +463,8 @@ async function handleCommand(msg: ClientCommand): Promise<void> {
     case 'SO_HOME':    state.homeShootout++; break;
     case 'SO_AWAY':    state.awayShootout++; break;
     case 'ADD_PENALTY':
-      state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player, duration: msg.duration * 60, remaining: msg.duration * 60 });
+      // msg.duration is provided in seconds from the client
+      state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player, duration: msg.duration, remaining: msg.duration });
       break;
     case 'REMOVE_PENALTY':
       state.penalties = state.penalties.filter(p => p.id !== msg.id);
@@ -516,12 +517,18 @@ function advancePhase(): void {
 
 // ─── Server start ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/socket') || req.path === '/display.html' || path.extname(req.path)) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 server.listen(PORT, async () => {
   console.log('\n🏒 Unihockey Matchuhr läuft!');
-  console.log(`   Spielstart:   http://localhost:${PORT}/gamestart.html`);
-  console.log(`   Operator:     http://localhost:${PORT}/operator.html`);
-  console.log(`   Display:      http://localhost:${PORT}/display.html`);
-  console.log(`   Manager:      http://localhost:${PORT}/manager.html`);
+  console.log(`   Admin SPA:   http://localhost:${PORT}/`);
+  console.log(`   Display:     http://localhost:${PORT}/display.html`);
   console.log(`\n   Prisma Studio: npx prisma studio  →  http://localhost:5555  (start manual)\n`);
   await loadLastMatch();
   startTick();

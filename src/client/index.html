@@ -12,36 +12,9 @@
       box-shadow: 0 0 6px currentColor; margin-right: 8px;
     }
   </style>
-  <script type="module" src="./index.ts"></script>
 </head>
 <body class="bg-base-300 p-4">
-
-  <!-- Connection Status (wie im Manager) -->
-  <div id="conn-status" class="alert alert-info py-1 px-4 text-sm mb-4 justify-center">Lade Dashboard...</div>
-
-  <!-- Navigation -->
-  <div class="flex gap-6 mb-5 text-sm">
-    <a href="/gamestart.html" class="link link-primary">🏒 Spielstart</a>
-    <a href="/operator.html" class="link link-primary">🎮 Operator</a>
-    <a href="/display.html" target="_blank" class="link link-secondary">📺 Display</a>
-    <a href="/manager.html" class="link link-ghost">⚙️ Manager</a>
-  </div>
-
-  <!-- Header -->
-  <div class="flex items-center justify-between mb-5">
-    <h1 class="text-2xl font-bold text-primary">📊 Match Übersicht</h1>
-    <button onclick="loadDashboard()" class="btn btn-square btn-ghost btn-sm" title="Aktualisieren">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-    </button>
-  </div>
-
-  <!-- Content Area -->
-  <div id="dashboard-content" class="space-y-4">
-    <!-- Wird dynamisch gefüllt -->
-    <div class="flex justify-center items-center py-20">
-      <span class="loading loading-spinner loading-lg text-primary"></span>
-    </div>
-  </div>
-
+  <div id="app"></div>
+  <script type="module" src="./index.ts"></script>
 </body>
 </html>

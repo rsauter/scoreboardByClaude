@@ -52,6 +52,50 @@ const server = http_1.default.createServer(app);
 const wss = new ws_1.WebSocketServer({ server });
 app.use(express_1.default.static(path_1.default.join(__dirname, 'public')));
 app.use(express_1.default.json());
+// ─── Dashboard API (Match List with Status) ──────────────────────────────────
+app.get('/api/dashboard', async (_req, res) => {
+    try {
+        // Hole alle Matches, die nicht beendet sind (planned, pregame, period, etc.)
+        const matches = await prisma.match.findMany({
+            where: { phase: { not: 'ended' } },
+            orderBy: { scheduledAt: 'desc' }, // Neueste zuerst
+            include: { homeTeam: true, awayTeam: true }
+        });
+        const now = Date.now();
+        const THRESHOLD_CRASH = 15000; // 15 Sekunden ohne Update = Crash/Verbindung weg
+        const THRESHOLD_WARN = 5000; // 5 Sekunden = Warnung
+        const dashboardData = matches.map(match => {
+            // Berechne Zeit seit letztem Datenbank-Update
+            const lastUpdate = match.savedAt ? match.savedAt.getTime() : 0;
+            const diff = now - lastUpdate;
+            let status = 'ok'; // Grün
+            if (match.phase === 'planned') {
+                status = 'planned'; // Blau/Grau (noch nicht gestartet)
+            }
+            else if (diff > THRESHOLD_CRASH) {
+                status = 'crash'; // Rot
+            }
+            else if (diff > THRESHOLD_WARN) {
+                status = 'warn'; // Gelb
+            }
+            return {
+                id: match.id,
+                homeTeam: match.homeTeam.name,
+                awayTeam: match.awayTeam.name,
+                homeScore: match.scoreHome,
+                awayScore: match.scoreAway,
+                phase: match.phase,
+                scheduledAt: match.scheduledAt,
+                status: status,
+                lastUpdate: lastUpdate
+            };
+        });
+        res.json(dashboardData);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 // ─── Teams API ────────────────────────────────────────────────────────────────
 app.get('/api/teams', async (_req, res) => {
     try {
@@ -89,6 +133,121 @@ app.put('/api/teams/:id', async (req, res) => {
 app.delete('/api/teams/:id', async (req, res) => {
     try {
         await prisma.team.delete({ where: { id: parseInt(req.params.id) } });
+        res.status(204).send();
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+function isValidGameMode(mode) {
+    return mode === '1x24' || mode === '2x20' || mode === '3x20';
+}
+function getPeriodDuration(mode) {
+    return mode === '1x24' ? 24 * 60 : 20 * 60;
+}
+// ─── Matches API (nur geplante Matches) ─────────────────────────────────────
+app.get('/api/matches', async (_req, res) => {
+    try {
+        const matches = await prisma.match.findMany({
+            where: { phase: 'planned' },
+            orderBy: { scheduledAt: 'desc' },
+            include: { homeTeam: true, awayTeam: true }
+        });
+        res.json(matches);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.post('/api/matches', async (req, res) => {
+    const { homeTeamId, awayTeamId, gameMode, scheduledAt } = req.body;
+    if (!homeTeamId || !awayTeamId) {
+        return void res.status(400).json({ error: 'homeTeamId und awayTeamId sind Pflicht' });
+    }
+    if (homeTeamId === awayTeamId) {
+        return void res.status(400).json({ error: 'Heim und Gast müssen unterschiedlich sein' });
+    }
+    if (!isValidGameMode(gameMode)) {
+        return void res.status(400).json({ error: 'Ungültiger gameMode' });
+    }
+    let scheduledAtDate = null;
+    if (!scheduledAt) {
+        return void res.status(400).json({ error: 'scheduledAt ist Pflicht' });
+    }
+    scheduledAtDate = new Date(scheduledAt);
+    if (Number.isNaN(scheduledAtDate.getTime())) {
+        return void res.status(400).json({ error: 'Ungültiges Datum für scheduledAt' });
+    }
+    try {
+        const match = await prisma.match.create({
+            data: {
+                homeTeamId: Number(homeTeamId),
+                awayTeamId: Number(awayTeamId),
+                gameMode,
+                scheduledAt: scheduledAtDate,
+                phase: 'planned',
+                currentPeriod: '1',
+                timeRemaining: getPeriodDuration(gameMode),
+                running: false,
+                penalties: [],
+            },
+            include: { homeTeam: true, awayTeam: true }
+        });
+        res.status(201).json(match);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.put('/api/matches/:id', async (req, res) => {
+    const { homeTeamId, awayTeamId, gameMode, scheduledAt } = req.body;
+    if (!homeTeamId || !awayTeamId) {
+        return void res.status(400).json({ error: 'homeTeamId und awayTeamId sind Pflicht' });
+    }
+    if (homeTeamId === awayTeamId) {
+        return void res.status(400).json({ error: 'Heim und Gast müssen unterschiedlich sein' });
+    }
+    if (!isValidGameMode(gameMode)) {
+        return void res.status(400).json({ error: 'Ungültiger gameMode' });
+    }
+    if (!scheduledAt) {
+        return void res.status(400).json({ error: 'scheduledAt ist Pflicht' });
+    }
+    const scheduledAtDate = new Date(scheduledAt);
+    if (Number.isNaN(scheduledAtDate.getTime())) {
+        return void res.status(400).json({ error: 'Ungültiges Datum für scheduledAt' });
+    }
+    try {
+        const updated = await prisma.match.updateMany({
+            where: { id: parseInt(req.params.id), phase: 'planned' },
+            data: {
+                homeTeamId: Number(homeTeamId),
+                awayTeamId: Number(awayTeamId),
+                gameMode,
+                scheduledAt: scheduledAtDate,
+                currentPeriod: '1',
+                timeRemaining: getPeriodDuration(gameMode),
+            }
+        });
+        if (updated.count === 0) {
+            return void res.status(404).json({ error: 'Geplantes Match nicht gefunden' });
+        }
+        const match = await prisma.match.findUnique({
+            where: { id: parseInt(req.params.id) },
+            include: { homeTeam: true, awayTeam: true }
+        });
+        res.json(match);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.delete('/api/matches/:id', async (req, res) => {
+    try {
+        const deleted = await prisma.match.deleteMany({ where: { id: parseInt(req.params.id), phase: 'planned' } });
+        if (deleted.count === 0) {
+            return void res.status(404).json({ error: 'Geplantes Match nicht gefunden' });
+        }
         res.status(204).send();
     }
     catch (e) {
@@ -159,7 +318,7 @@ setInterval(saveStateToDb, 5000);
 async function loadLastMatch() {
     try {
         const match = await prisma.match.findFirst({
-            where: { phase: { not: 'ended' } },
+            where: { phase: { notIn: ['ended', 'planned'] } },
             orderBy: { savedAt: 'desc' },
             include: { homeTeam: true, awayTeam: true }
         });
@@ -180,7 +339,7 @@ async function loadLastMatch() {
             timeRemaining: match.timeRemaining,
             running: false,
             penalties: Array.isArray(match.penalties) ? match.penalties : [],
-            periodDuration: match.gameMode === '1x24' ? 24 * 60 : 20 * 60,
+            periodDuration: getPeriodDuration(match.gameMode),
         };
     }
     catch (e) {
@@ -251,23 +410,54 @@ async function handleCommand(msg) {
             state.otDuration = msg.otDuration;
             state.homeTeam = msg.homeTeam;
             state.awayTeam = msg.awayTeam;
-            state.periodDuration = msg.gameMode === '1x24' ? 24 * 60 : 20 * 60;
+            state.periodDuration = getPeriodDuration(msg.gameMode);
             state.timeRemaining = state.periodDuration;
             state.phase = 'pregame';
             state.currentPeriod = 1;
             try {
-                if (currentMatchId) {
+                if (currentMatchId && currentMatchId !== msg.matchId) {
                     await prisma.match.update({ where: { id: currentMatchId }, data: { phase: 'ended' } });
                 }
                 const homeTeamDb = await prisma.team.findFirst({ where: { OR: [{ name: msg.homeTeam }, { abbreviation: msg.homeTeam }] } });
                 const awayTeamDb = await prisma.team.findFirst({ where: { OR: [{ name: msg.awayTeam }, { abbreviation: msg.awayTeam }] } });
                 const homeTeam = homeTeamDb || await prisma.team.create({ data: { name: msg.homeTeam, abbreviation: msg.homeTeam, color: '#00d4ff', organization: '' } });
                 const awayTeam = awayTeamDb || await prisma.team.create({ data: { name: msg.awayTeam, abbreviation: msg.awayTeam, color: '#ff6b6b', organization: '' } });
-                const match = await prisma.match.create({
-                    data: { homeTeamId: homeTeam.id, awayTeamId: awayTeam.id, gameMode: msg.gameMode, phase: 'pregame', currentPeriod: '1', timeRemaining: state.periodDuration, running: false, penalties: [] }
-                });
-                currentMatchId = match.id;
-                console.log(`✅ Match #${currentMatchId} erstellt: ${msg.homeTeam} vs ${msg.awayTeam}`);
+                if (msg.matchId) {
+                    const updated = await prisma.match.updateMany({
+                        where: { id: msg.matchId, phase: 'planned' },
+                        data: {
+                            homeTeamId: homeTeam.id,
+                            awayTeamId: awayTeam.id,
+                            gameMode: msg.gameMode,
+                            phase: 'pregame',
+                            currentPeriod: '1',
+                            timeRemaining: state.periodDuration,
+                            running: false,
+                            penalties: [],
+                            scoreHome: 0,
+                            scoreAway: 0,
+                            startedAt: null,
+                        }
+                    });
+                    if (updated.count > 0) {
+                        currentMatchId = msg.matchId;
+                        console.log(`✅ Geplantes Match #${currentMatchId} aktiviert: ${msg.homeTeam} vs ${msg.awayTeam}`);
+                    }
+                    else {
+                        const match = await prisma.match.create({
+                            data: { homeTeamId: homeTeam.id, awayTeamId: awayTeam.id, gameMode: msg.gameMode, phase: 'pregame', currentPeriod: '1', timeRemaining: state.periodDuration, running: false, penalties: [] }
+                        });
+                        currentMatchId = match.id;
+                        console.log(`✅ Match #${currentMatchId} erstellt (Fallback): ${msg.homeTeam} vs ${msg.awayTeam}`);
+                    }
+                }
+                else {
+                    const match = await prisma.match.create({
+                        data: { homeTeamId: homeTeam.id, awayTeamId: awayTeam.id, gameMode: msg.gameMode, phase: 'pregame', currentPeriod: '1', timeRemaining: state.periodDuration, running: false, penalties: [] }
+                    });
+                    currentMatchId = match.id;
+                    console.log(`✅ Match #${currentMatchId} erstellt: ${msg.homeTeam} vs ${msg.awayTeam}`);
+                }
             }
             catch (e) {
                 console.error('Match create failed:', e.message);
@@ -284,7 +474,8 @@ async function handleCommand(msg) {
                     try {
                         const match = await prisma.match.findUnique({ where: { id: currentMatchId } });
                         if (match && !match.startedAt) {
-                            await prisma.match.update({ where: { id: currentMatchId }, data: { startedAt: new Date(), phase: 'period' } });
+                            const now = new Date();
+                            await prisma.match.update({ where: { id: currentMatchId }, data: { startedAt: now, playedAt: now, phase: 'period' } });
                         }
                     }
                     catch (e) {
@@ -331,7 +522,8 @@ async function handleCommand(msg) {
             state.awayShootout++;
             break;
         case 'ADD_PENALTY':
-            state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player, duration: msg.duration * 60, remaining: msg.duration * 60 });
+            // msg.duration is provided in seconds from the client
+            state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player, duration: msg.duration, remaining: msg.duration });
             break;
         case 'REMOVE_PENALTY':
             state.penalties = state.penalties.filter(p => p.id !== msg.id);
@@ -406,13 +598,17 @@ function advancePhase() {
 }
 // ─── Server start ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
+app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket') || req.path === '/display.html' || path_1.default.extname(req.path)) {
+        return next();
+    }
+    res.sendFile(path_1.default.join(__dirname, 'public', 'index.html'));
+});
 server.listen(PORT, async () => {
     console.log('\n🏒 Unihockey Matchuhr läuft!');
-    console.log(`   Spielstart:   http://localhost:${PORT}/gamestart.html`);
-    console.log(`   Operator:     http://localhost:${PORT}/operator.html`);
-    console.log(`   Display:      http://localhost:${PORT}/display.html`);
-    console.log(`   Manager:      http://localhost:${PORT}/manager.html`);
-    console.log(`\n   Prisma Studio: npx prisma studio  →  http://localhost:5555\n`);
+    console.log(`   Admin SPA:   http://localhost:${PORT}/`);
+    console.log(`   Display:     http://localhost:${PORT}/display.html`);
+    console.log(`\n   Prisma Studio: npx prisma studio  →  http://localhost:5555  (start manual)\n`);
     await loadLastMatch();
     startTick();
 });
