@@ -571,9 +571,11 @@ async function handleCommand(msg: ClientCommand): Promise<void> {
     case 'SO_AWAY':    state.awayShootout++; break;
     case 'ADD_PENALTY': {
       // remaining auf denselben Nachkomma-Bruchteil wie timeRemaining synchronisieren
-      // damit fmt(Math.ceil) für beide gleichzeitig springt
+      // damit fmt(Math.ceil) für beide gleichzeitig springt.
+      // frac == 0: Strafe genau auf Sekundengrenze → remaining = duration (beide zeigen volle Sekunden)
+      // frac  > 0: Strafe mitten in der Sekunde → remaining = duration - 1 + frac (gleiche ceil-Grenze)
       const frac = state.timeRemaining - Math.floor(state.timeRemaining);
-      const remaining = msg.duration - (1 - frac); // gleiche Sekundengrenze
+      const remaining = frac > 0 ? msg.duration - 1 + frac : msg.duration;  
       state.penalties.push({ id: Date.now(), team: msg.team, player: msg.player, duration: msg.duration, remaining });
       break;
     }
