@@ -13,6 +13,16 @@
       <div class="flex flex-wrap items-center gap-2">
         <a href="/display.html" target="_blank" class="btn btn-outline btn-sm">Display</a>
         <span class="text-xs text-base-content/60">Standalone Anzeige</span>
+
+        <!-- Theme Selector -->
+        <details class="dropdown dropdown-end">
+          <summary class="btn btn-ghost btn-sm">🎨 {{ currentTheme }}</summary>
+          <ul class="dropdown-content menu bg-base-200 rounded-box z-50 w-44 p-2 shadow-lg max-h-80 overflow-y-auto flex-nowrap">
+            <li v-for="t in themes" :key="t">
+              <a :class="{ active: currentTheme === t }" @click="setTheme(t)">{{ t }}</a>
+            </li>
+          </ul>
+        </details>
       </div>
     </div>
   </header>
@@ -20,7 +30,24 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
+import { ref } from 'vue';
+
 const route = useRoute();
+
+const themes = [
+  'light', 'dark', 'cupcake', 'emerald', 'corporate', 'synthwave',
+  'retro', 'cyberpunk', 'halloween', 'forest', 'aqua', 'lofi',
+  'black', 'luxury', 'dracula', 'autumn', 'business', 'night',
+  'coffee', 'winter', 'dim', 'nord', 'sunset',
+];
+
+const currentTheme = ref(localStorage.getItem('theme') ?? 'dark');
+
+function setTheme(theme: string) {
+  currentTheme.value = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+}
 </script>
 
 <style scoped>
